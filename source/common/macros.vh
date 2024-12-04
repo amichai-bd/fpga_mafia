@@ -102,6 +102,14 @@ end
 
 `define MAFIA_BINARY_TO_GRAY(gray,binary)  \
    gray = binary ^ (binary >> 1);   
-      
+
+`define MAFIA_RST_LATCH(q,i,en,rst)  \
+   always_latch @(en or rst) begin   \
+      if(rst) begin                  \
+         q = '0;                     \
+      end else if (en) begin         \
+         q = i;                      \
+      end                            \
+   end
 
 `endif //MACROS_VS
