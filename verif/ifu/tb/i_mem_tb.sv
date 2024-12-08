@@ -27,7 +27,7 @@ i_mem
 i_mem
 (
     .clock(clock),
-    .address(address[ADRS_WIDTH-1:4]), 
+    .address(address), 
     .wren(wren),
     .data(data),
     .q(q)        
@@ -35,18 +35,18 @@ i_mem
 
 initial begin
     wren = 0;
-    address = 32'h0000001_0; //tag_offset
+    address = 32'h00000001; //tag_offset
     data    = 128'h1;
     #30    
     @(posedge clock)
 
     wren = 1;
-    address = 32'h0000001_0;
+    address = 32'h00000001;
     data    = 128'h00000001;
     #30    
     @(posedge clock)
 
-    address = 32'h0000002_0;
+    address = 32'h00000002;
     data    = 128'h00000002;
     #30    
     @(posedge clock)

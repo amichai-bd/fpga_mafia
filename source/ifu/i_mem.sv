@@ -15,7 +15,7 @@
 module i_mem #(parameter DATA_WIDTH = 128, parameter ADRS_WIDTH = 32)
 (
     input  logic                  clock    ,
-    input  logic [ADRS_WIDTH-1:4] address  , 
+    input  logic [ADRS_WIDTH-1:0] address  , // TODO - possible to reduce size because we use only 28 bits pc[31:4]
     input  logic                  wren     ,
     input  logic [DATA_WIDTH-1:0] data     ,
     output logic [DATA_WIDTH-1:0] q        
