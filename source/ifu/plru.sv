@@ -27,13 +27,13 @@ import ifu_pkg::*;
 
     // representation of 15 plru tree nodes
     t_plru_node [PLRU_NODES_NUM] plru_tree_nodes, next_plru_tree_nodes; 
-    `MAFIA_EN_RST_DFF(plru_tree_nodes, next_plru_tree_nodes, clk, cache_ctrl2_plru.update_counter,  rst)
+    `MAFIA_EN_RST_DFF(plru_tree_nodes, next_plru_tree_nodes, clk, cache_ctrl2_plru.update_tree,  rst)
 
     // when the cache is not full and we have miss we will it in the next available cache line
     // when cache is full the fill/eviction in case of miss will be determined by the PLRU and not the counter
     logic [$clog2(WAYS_NUM)-1:0] counter, next_counter; 
     assign next_counter = (cache_miss == 1) ? counter + 1 : counter;
-    `MAFIA_EN_RST_DFF(counter, next_counter, clk, cache_ctrl2_plru.update_tree, rst)
+    `MAFIA_EN_RST_DFF(counter, next_counter, clk, cache_ctrl2_plru.update_counter, rst)
 
     /*                     PLRU tree representation
     ***********************************************************************
@@ -174,21 +174,54 @@ task update_tree(input logic [$clog2(WAYS_NUM)-1:0] node);
 endtask
 
 task search_evicted(output logic [$clog2(WAYS_NUM)-1:0] evicted_cl);
-    logic [PLRU_NODES_NUM-1:0] current_node; // Current node in the tree traversal
+    logic [$clog2(WAYS_NUM)-1:0] current_node;
+    integer depth;
+    depth = $clog2(WAYS_NUM);
     begin
-        current_node = 0; 
+        current_node = 0;
 
-        while (current_node < WAYS_NUM - 1) begin
+        // Traverse the tree
+        for (integer i = 0; i < depth; i++) begin
             if (plru_tree_nodes[current_node].next_node_is_left) begin
-                // If the current node prefers left, go right (opposite)
-                current_node = (current_node << 1) + 2; // Move to the right child
+                current_node = (current_node << 1) + 2; // Go to right child
             end else begin
-                // If the current node prefers right, go left (opposite)
-                current_node = (current_node << 1) + 1; // Move to the left child
+                current_node = (current_node << 1) + 1; // Go to left child
             end
         end
 
-        evicted_cl = current_node - (WAYS_NUM - 1);
+        // Map the current_node to the evicted cache line
+        if((current_node == 4'h7) && (plru_tree_nodes[current_node].next_node_is_left)) 
+            evicted_cl = 4'h0;
+        else    
+            evicted_cl = 4'h1;
+        if((current_node == 4'h8) && (plru_tree_nodes[current_node].next_node_is_left)) 
+            evicted_cl = 4'h2;
+        else    
+            evicted_cl = 4'h3;
+        if((current_node == 4'h9) && (plru_tree_nodes[current_node].next_node_is_left))
+            evicted_cl = 4'h4;
+        else    
+            evicted_cl = 4'h5;
+        if((current_node == 4'hA) && (plru_tree_nodes[current_node].next_node_is_left))
+            evicted_cl = 4'h6;
+        else    
+            evicted_cl = 4'h7;
+        if((current_node == 4'hB) && (plru_tree_nodes[current_node].next_node_is_left))
+            evicted_cl = 4'h8;
+        else    
+            evicted_cl = 4'h9;
+        if((current_node == 4'hC) && (plru_tree_nodes[current_node].next_node_is_left))
+            evicted_cl = 4'hA;
+        else    
+            evicted_cl = 4'hB;
+        if((current_node == 4'hD) && (plru_tree_nodes[current_node].next_node_is_left))
+            evicted_cl = 4'hC;
+        else    
+            evicted_cl = 4'hD;
+        if((current_node == 4'hE) && (plru_tree_nodes[current_node].next_node_is_left)) 
+            evicted_cl = 4'hE;
+        else    
+            evicted_cl = 4'hF;
     end
 endtask
 
