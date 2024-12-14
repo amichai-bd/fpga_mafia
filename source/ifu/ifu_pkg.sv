@@ -7,7 +7,7 @@ package ifu_pkg;
 parameter CL_WIDTH            = 128;
 parameter WAYS_NUM            = 16;
 parameter TAG_ADDRESS_WIDTH   = 28;  // pc[31:4]
-parameter PLRU_BITS           = WAYS_NUM - 1;    
+parameter PLRU_NODES_NUM      = WAYS_NUM - 1;    
 
 
 typedef struct packed {
@@ -26,5 +26,13 @@ typedef struct packed {
     logic        requested_instruction_valid;
 } t_cache2core_rsp;
 
+typedef struct packed {
+    logic next_node_is_right;
+    logic next_node_is_left;
+}t_plru_node;
+
+typedef struct packed{
+    t_plru_node [PLRU_NODES_NUM] plru_tree_nodes; 
+} t_plru_tree_nodes;
 
 endpackage

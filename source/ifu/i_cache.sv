@@ -27,7 +27,6 @@ import ifu_pkg::*;
 logic [CL_WIDTH-1:0]           data_arr [WAYS_NUM-1:0];        // holds the instruction
 logic [CL_WIDTH-1:0]           tag_valid_arr;                  // hold if the instruction is valid
 logic [TAG_ADDRESS_WIDTH-1 :0] tag_address_arr [WAYS_NUM-1:0]; //
-logic [PLRU_BITS-1:0]          pseudo_lru_bits;
 
 
 logic                         cache_hit_q0;
