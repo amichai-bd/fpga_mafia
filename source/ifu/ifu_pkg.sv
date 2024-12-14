@@ -27,12 +27,14 @@ typedef struct packed {
 } t_cache2core_rsp;
 
 typedef struct packed {
+    logic update_counter; // occurs when cache is not full and have miss     
+    logic update_tree;    
+} t_cache_ctrl2_plru;
+
+typedef struct packed {
     logic next_node_is_right;
     logic next_node_is_left;
 }t_plru_node;
 
-typedef struct packed{
-    t_plru_node [PLRU_NODES_NUM] plru_tree_nodes; 
-} t_plru_tree_nodes;
 
 endpackage
