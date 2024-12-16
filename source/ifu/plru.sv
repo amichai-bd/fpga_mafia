@@ -19,21 +19,19 @@ import ifu_pkg::*;
 
     input logic                         clk,
     input logic                         rst,
-    input var t_cache_ctrl2_plru        cache_ctrl2_plru,    
-    input logic                         cache_miss,  
-    input logic  [$clog2(WAYS_NUM)-1:0] hit_cl,      // in case of last hit we have to update as most recently used (MRU) 
+    input var t_cache_ctrl_plru         cache_ctrl_plru,      
     output logic [$clog2(WAYS_NUM)-1:0] evicted_cl   // the evicted cache line in case of miss
 );
 
     // representation of 15 plru tree nodes
     t_plru_node [PLRU_NODES_NUM] plru_tree_nodes, next_plru_tree_nodes; 
-    `MAFIA_EN_RST_DFF(plru_tree_nodes, next_plru_tree_nodes, clk, cache_ctrl2_plru.update_tree,  rst)
+    `MAFIA_EN_RST_DFF(plru_tree_nodes, next_plru_tree_nodes, clk, cache_ctrl_plru.update_tree,  rst)
 
     // when the cache is not full and we have miss we will it in the next available cache line
     // when cache is full the fill/eviction in case of miss will be determined by the PLRU and not the counter
     logic [$clog2(WAYS_NUM)-1:0] counter; 
     logic counter_en;
-    assign counter_en = ((counter < 4'hf) && (cache_miss) && (cache_ctrl2_plru.update_counter));
+    assign counter_en = ((counter < 4'hf) && (cache_ctrl_plru.cache_miss));
     `MAFIA_EN_RST_DFF(counter, counter+1, clk, counter_en, rst)
 
     /*                     PLRU tree representation
@@ -51,7 +49,7 @@ import ifu_pkg::*;
     logic  cache_miss_and_not_full;
     logic  cache_full;
     assign cache_full   = (counter == 4'hf) ? 1'b1 : 1'b0;
-    assign cache_miss_and_not_full = (!cache_full) && cache_miss;
+    assign cache_miss_and_not_full = (!cache_full) && cache_ctrl_plru.cache_miss;
 
     // "cache_miss_and_not_full" - in that case we fill the cache with the next available cache line pointed by the counter. 
     // must update the tree and send next cache line for eviction
@@ -61,8 +59,8 @@ import ifu_pkg::*;
         if(cache_miss_and_not_full) begin
             update_tree(counter);
             evicted_cl = counter;
-        end else if(!cache_miss) begin
-            update_tree(hit_cl);
+        end else if(!cache_ctrl_plru.cache_miss) begin
+            update_tree(cache_ctrl_plru.hit_cl);
         end else begin // case of miss
             search_evicted(evicted_cl);
             update_tree(evicted_cl);

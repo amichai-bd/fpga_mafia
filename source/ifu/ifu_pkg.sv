@@ -24,12 +24,22 @@ typedef struct packed {
 typedef struct packed {
     logic [31:0] requested_instruction;   
     logic        requested_instruction_valid;
+    logic        stall_pc;
 } t_cache2core_rsp;
 
+typedef enum {
+    IDLE,
+    MISS_DETECTED,
+    WAIT_FOR_IMEM,
+    FILL_DATA_ARR,
+    HIT
+} t_cache_states;
+
 typedef struct packed {
-    logic update_counter; // occurs when cache is not full and have miss     
-    logic update_tree;    
-} t_cache_ctrl2_plru;
+    logic                        update_tree;
+    logic [$clog2(WAYS_NUM)-1:0] hit_cl;    // index of hitted cache line
+    logic                        cache_miss;    
+} t_cache_ctrl_plru;
 
 typedef struct packed {
     logic next_node_is_right;
