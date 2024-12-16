@@ -104,7 +104,7 @@ end
    gray = binary ^ (binary >> 1);   
 
 `define MAFIA_RST_LATCH(q,i,en,rst)  \
-   always_latch @(en or rst) begin   \
+   always_latch begin                \
       if(rst) begin                  \
          q = '0;                     \
       end else if (en) begin         \
