@@ -31,9 +31,10 @@ import ifu_pkg::*;
 
     // when the cache is not full and we have miss we will it in the next available cache line
     // when cache is full the fill/eviction in case of miss will be determined by the PLRU and not the counter
-    logic [$clog2(WAYS_NUM)-1:0] counter, next_counter; 
-    assign next_counter = (cache_miss == 1) ? counter + 1 : counter;
-    `MAFIA_EN_RST_DFF(counter, next_counter, clk, cache_ctrl2_plru.update_counter, rst)
+    logic [$clog2(WAYS_NUM)-1:0] counter; 
+    logic counter_en;
+    assign counter_en = ((counter < 4'hf) && (cache_miss) && (cache_ctrl2_plru.update_counter));
+    `MAFIA_EN_RST_DFF(counter, counter+1, clk, counter_en, rst)
 
     /*                     PLRU tree representation
     ***********************************************************************
@@ -85,38 +86,72 @@ task update_tree(input logic [$clog2(WAYS_NUM)-1:0] node);
                 next_plru_tree_nodes[7].next_node_is_left  = 1;
             end
             4'h1: begin
+                next_plru_tree_nodes[0].next_node_is_right = 0;
+                next_plru_tree_nodes[0].next_node_is_left  = 1;
+                next_plru_tree_nodes[1].next_node_is_right = 0;
+                next_plru_tree_nodes[1].next_node_is_left  = 1;
+                next_plru_tree_nodes[3].next_node_is_right = 0;
+                next_plru_tree_nodes[3].next_node_is_left  = 1;
                 next_plru_tree_nodes[7].next_node_is_right = 1;
                 next_plru_tree_nodes[7].next_node_is_left  = 0;
             end
             4'h2: begin
+                next_plru_tree_nodes[0].next_node_is_right = 0;
+                next_plru_tree_nodes[0].next_node_is_left  = 1;
+                next_plru_tree_nodes[1].next_node_is_right = 0;
+                next_plru_tree_nodes[1].next_node_is_left  = 1;
                 next_plru_tree_nodes[3].next_node_is_right = 1;
                 next_plru_tree_nodes[3].next_node_is_left  = 0;
                 next_plru_tree_nodes[8].next_node_is_right = 0;
                 next_plru_tree_nodes[8].next_node_is_left  = 1;
             end
             4'h3: begin
+                next_plru_tree_nodes[0].next_node_is_right = 0;
+                next_plru_tree_nodes[0].next_node_is_left  = 1;
+                next_plru_tree_nodes[1].next_node_is_right = 0;
+                next_plru_tree_nodes[1].next_node_is_left  = 1;
+                next_plru_tree_nodes[3].next_node_is_right = 1;
+                next_plru_tree_nodes[3].next_node_is_left  = 0;
                 next_plru_tree_nodes[8].next_node_is_right = 1;
                 next_plru_tree_nodes[8].next_node_is_left  = 0;
             end
             4'h4: begin
-                next_plru_tree_nodes[1].next_node_is_right = 1;
-                next_plru_tree_nodes[1].next_node_is_left  = 0;
+                next_plru_tree_nodes[0].next_node_is_right = 0;
+                next_plru_tree_nodes[0].next_node_is_left  = 1;
+                next_plru_tree_nodes[1].next_node_is_right = 0;
+                next_plru_tree_nodes[1].next_node_is_left  = 1;
                 next_plru_tree_nodes[4].next_node_is_right = 0;
                 next_plru_tree_nodes[4].next_node_is_left  = 1;
                 next_plru_tree_nodes[9].next_node_is_right = 0;
                 next_plru_tree_nodes[9].next_node_is_left  = 1;
             end
             4'h5: begin
+                next_plru_tree_nodes[0].next_node_is_right = 0;
+                next_plru_tree_nodes[0].next_node_is_left  = 1;
+                next_plru_tree_nodes[1].next_node_is_right = 0;
+                next_plru_tree_nodes[1].next_node_is_left  = 1;
+                next_plru_tree_nodes[4].next_node_is_right = 0;
+                next_plru_tree_nodes[4].next_node_is_left  = 1;
                 next_plru_tree_nodes[9].next_node_is_right = 1;
                 next_plru_tree_nodes[9].next_node_is_left  = 0;
             end
             4'h6: begin
+                next_plru_tree_nodes[0].next_node_is_right = 0;
+                next_plru_tree_nodes[0].next_node_is_left  = 1;
+                next_plru_tree_nodes[1].next_node_is_right = 0;
+                next_plru_tree_nodes[1].next_node_is_left  = 1;
                 next_plru_tree_nodes[4].next_node_is_right = 1;
                 next_plru_tree_nodes[4].next_node_is_left  = 0;
                 next_plru_tree_nodes[10].next_node_is_right = 0;
                 next_plru_tree_nodes[10].next_node_is_left  = 1;
             end
             4'h7: begin
+                next_plru_tree_nodes[0].next_node_is_right = 0;
+                next_plru_tree_nodes[0].next_node_is_left  = 1;
+                next_plru_tree_nodes[1].next_node_is_right = 0;
+                next_plru_tree_nodes[1].next_node_is_left  = 1;
+                next_plru_tree_nodes[4].next_node_is_right = 1;
+                next_plru_tree_nodes[4].next_node_is_left  = 0;
                 next_plru_tree_nodes[10].next_node_is_right = 1;
                 next_plru_tree_nodes[10].next_node_is_left  = 0;
             end
@@ -131,20 +166,38 @@ task update_tree(input logic [$clog2(WAYS_NUM)-1:0] node);
                 next_plru_tree_nodes[11].next_node_is_left  = 1;
             end
             4'h9: begin
+                next_plru_tree_nodes[0].next_node_is_right = 1;
+                next_plru_tree_nodes[0].next_node_is_left  = 0;
+                next_plru_tree_nodes[2].next_node_is_right = 0;
+                next_plru_tree_nodes[2].next_node_is_left  = 1;
+                next_plru_tree_nodes[5].next_node_is_right = 0;
+                next_plru_tree_nodes[5].next_node_is_left  = 1;
                 next_plru_tree_nodes[11].next_node_is_right = 1;
                 next_plru_tree_nodes[11].next_node_is_left  = 0;
             end
             4'hA: begin
+                next_plru_tree_nodes[0].next_node_is_right = 1;
+                next_plru_tree_nodes[0].next_node_is_left  = 0;
+                next_plru_tree_nodes[2].next_node_is_right = 0;
+                next_plru_tree_nodes[2].next_node_is_left  = 1;
                 next_plru_tree_nodes[5].next_node_is_right = 1;
                 next_plru_tree_nodes[5].next_node_is_left  = 0;
                 next_plru_tree_nodes[12].next_node_is_right = 0;
                 next_plru_tree_nodes[12].next_node_is_left  = 1;
             end
             4'hB: begin
+                next_plru_tree_nodes[0].next_node_is_right = 1;
+                next_plru_tree_nodes[0].next_node_is_left  = 0;
+                next_plru_tree_nodes[2].next_node_is_right = 0;
+                next_plru_tree_nodes[2].next_node_is_left  = 1;
+                next_plru_tree_nodes[5].next_node_is_right = 1;
+                next_plru_tree_nodes[5].next_node_is_left  = 0;
                 next_plru_tree_nodes[12].next_node_is_right = 1;
                 next_plru_tree_nodes[12].next_node_is_left  = 0;
             end
             4'hC: begin
+                next_plru_tree_nodes[0].next_node_is_right = 1;
+                next_plru_tree_nodes[0].next_node_is_left  = 0;
                 next_plru_tree_nodes[2].next_node_is_right = 1;
                 next_plru_tree_nodes[2].next_node_is_left  = 0;
                 next_plru_tree_nodes[6].next_node_is_right = 0;
@@ -153,16 +206,32 @@ task update_tree(input logic [$clog2(WAYS_NUM)-1:0] node);
                 next_plru_tree_nodes[13].next_node_is_left  = 1;
             end
             4'hD: begin
+                next_plru_tree_nodes[0].next_node_is_right = 1;
+                next_plru_tree_nodes[0].next_node_is_left  = 0;
+                next_plru_tree_nodes[2].next_node_is_right = 1;
+                next_plru_tree_nodes[2].next_node_is_left  = 0;
+                next_plru_tree_nodes[6].next_node_is_right = 0;
+                next_plru_tree_nodes[6].next_node_is_left  = 1;
                 next_plru_tree_nodes[13].next_node_is_right = 1;
                 next_plru_tree_nodes[13].next_node_is_left  = 0;
             end
             4'hE: begin
+                next_plru_tree_nodes[0].next_node_is_right = 1;
+                next_plru_tree_nodes[0].next_node_is_left  = 0;
+                next_plru_tree_nodes[2].next_node_is_right = 1;
+                next_plru_tree_nodes[2].next_node_is_left  = 0;
                 next_plru_tree_nodes[6].next_node_is_right = 1;
                 next_plru_tree_nodes[6].next_node_is_left  = 0;
                 next_plru_tree_nodes[14].next_node_is_right = 0;
                 next_plru_tree_nodes[14].next_node_is_left  = 1;
             end
             4'hF: begin
+                next_plru_tree_nodes[0].next_node_is_right = 1;
+                next_plru_tree_nodes[0].next_node_is_left  = 0;
+                next_plru_tree_nodes[2].next_node_is_right = 1;
+                next_plru_tree_nodes[2].next_node_is_left  = 0;
+                next_plru_tree_nodes[6].next_node_is_right = 1;
+                next_plru_tree_nodes[6].next_node_is_left  = 0;
                 next_plru_tree_nodes[14].next_node_is_right = 1;
                 next_plru_tree_nodes[14].next_node_is_left  = 0;
             end
@@ -190,38 +259,17 @@ task search_evicted(output logic [$clog2(WAYS_NUM)-1:0] evicted_cl);
         end
 
         // Map the current_node to the evicted cache line
-        if((current_node == 4'h7) && (plru_tree_nodes[current_node].next_node_is_left)) 
-            evicted_cl = 4'h0;
-        else    
-            evicted_cl = 4'h1;
-        if((current_node == 4'h8) && (plru_tree_nodes[current_node].next_node_is_left)) 
-            evicted_cl = 4'h2;
-        else    
-            evicted_cl = 4'h3;
-        if((current_node == 4'h9) && (plru_tree_nodes[current_node].next_node_is_left))
-            evicted_cl = 4'h4;
-        else    
-            evicted_cl = 4'h5;
-        if((current_node == 4'hA) && (plru_tree_nodes[current_node].next_node_is_left))
-            evicted_cl = 4'h6;
-        else    
-            evicted_cl = 4'h7;
-        if((current_node == 4'hB) && (plru_tree_nodes[current_node].next_node_is_left))
-            evicted_cl = 4'h8;
-        else    
-            evicted_cl = 4'h9;
-        if((current_node == 4'hC) && (plru_tree_nodes[current_node].next_node_is_left))
-            evicted_cl = 4'hA;
-        else    
-            evicted_cl = 4'hB;
-        if((current_node == 4'hD) && (plru_tree_nodes[current_node].next_node_is_left))
-            evicted_cl = 4'hC;
-        else    
-            evicted_cl = 4'hD;
-        if((current_node == 4'hE) && (plru_tree_nodes[current_node].next_node_is_left)) 
-            evicted_cl = 4'hE;
-        else    
-            evicted_cl = 4'hF;
+        case (current_node)
+            4'h7: evicted_cl = (plru_tree_nodes[current_node].next_node_is_left) ? 4'h0 : 4'h1;
+            4'h8: evicted_cl = (plru_tree_nodes[current_node].next_node_is_left) ? 4'h2 : 4'h3;
+            4'h9: evicted_cl = (plru_tree_nodes[current_node].next_node_is_left) ? 4'h4 : 4'h5;
+            4'hA: evicted_cl = (plru_tree_nodes[current_node].next_node_is_left) ? 4'h6 : 4'h7;
+            4'hB: evicted_cl = (plru_tree_nodes[current_node].next_node_is_left) ? 4'h8 : 4'h9;
+            4'hC: evicted_cl = (plru_tree_nodes[current_node].next_node_is_left) ? 4'hA : 4'hB;
+            4'hD: evicted_cl = (plru_tree_nodes[current_node].next_node_is_left) ? 4'hC : 4'hD;
+            4'hE: evicted_cl = (plru_tree_nodes[current_node].next_node_is_left) ? 4'hE : 4'hF;
+            default: evicted_cl = 4'h0; 
+        endcase
     end
 endtask
 
