@@ -27,7 +27,7 @@ import ifu_pkg::*;
 );
 
 logic [CL_WIDTH-1:0]           data_arr [WAYS_NUM-1:0];        // holds the instruction
-logic [CL_WIDTH-1:0]           tag_valid_arr;                  // hold if the instruction is valid
+logic [WAYS_NUM-1:0]           tag_valid_arr;                  // hold if the instruction is valid
 logic [TAG_ADDRESS_WIDTH-1 :0] tag_address_arr [WAYS_NUM-1:0]; //
 
 
@@ -90,13 +90,18 @@ end
 // ---------------------------
 logic latch_enable_fill;
 `MAFIA_RST_LATCH(data_arr[lru_tag], i_mem2cache_rsp.filled_instruction, latch_enable_fill, rst)
-`MAFIA_RST_LATCH(tag_address_arr[lru_tag], i_mem2cache_rsp.address, latch_enable_fill, rst)
+`MAFIA_RST_LATCH(tag_address_arr[lru_tag], i_mem2cache_rsp.address[31:4], latch_enable_fill, rst)
 `MAFIA_RST_LATCH(tag_valid_arr[lru_tag], 1'b1, latch_enable_fill, rst)
 
 
 //--------------------------
 //     cache state machine
 // -------------------------
+// ----------------------------------------------------------------------------
+// IDLE : initialization state. back pressure to the core when miss
+// WAIT_FOR_IMEM: stall the ifu and the core and wait till arrived from imem
+// FILL_DATA_ARR: fill cache with the desired data
+//----------------------------------------------------------------------------- 
 t_cache_states state, next_state;
 `MAFIA_RST_VAL_DFF(state, next_state, clk, rst, IDLE)
 always_comb begin
@@ -105,9 +110,13 @@ always_comb begin
     cache2core_rsp.stall_pc         = 0; // default do not stall
     latch_enable_fill               = 0; // do not fill latch data arr
     case(state)
-        MISS_DETECTED: begin
-            fill_requested_address_valid_q0 = 1; // sended to i_mem 
-            cache2core_rsp.stall_pc         = 1; // stall pc
+        IDLE: begin
+            if(!cache_hit_q0) begin
+                fill_requested_address_valid_q0 = 1; // sended to i_mem 
+                cache2core_rsp.stall_pc         = 1; // stall pc
+            end
+            else if(cache_hit_q0)
+                instruction2core_valid_q0       = 1;
         end
         WAIT_FOR_IMEM: begin
             cache2core_rsp.stall_pc         = 1;  // stall pc
@@ -117,9 +126,6 @@ always_comb begin
             cache2core_rsp.stall_pc         = 1;  // stall pc
             latch_enable_fill               = 1;
         end
-        HIT: begin
-           instruction2core_valid_q0        = 1;
-        end
     endcase
 end
 
@@ -128,10 +134,13 @@ assign plru_ctrl.hit_cl      = hit_index_q0;
 assign plru_ctrl.cache_miss  = !cache_hit_q0;
 
 always_comb begin: state_transition
-    next_state = (rst) ? IDLE : (cache_hit_q0) ? HIT : state;
+    next_state = state;
     case(state)
-        MISS_DETECTED: begin
-            next_state = WAIT_FOR_IMEM;
+        IDLE: begin
+            if(cache_hit_q0)
+                next_state = IDLE;
+            else
+                next_state = WAIT_FOR_IMEM;
         end
         WAIT_FOR_IMEM: begin
             if(!i_mem2cache_rsp.valid) 
@@ -142,7 +151,7 @@ always_comb begin: state_transition
         FILL_DATA_ARR: begin
             next_state = IDLE;
         end
-        default :next_state = HIT;
+        default :next_state = IDLE;
 
     endcase
 end
