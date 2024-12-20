@@ -29,10 +29,8 @@ typedef struct packed {
 
 typedef enum {
     IDLE,
-    MISS_DETECTED,
     WAIT_FOR_IMEM,
-    FILL_DATA_ARR,
-    HIT
+    FILL_DATA_ARR
 } t_cache_states;
 
 typedef struct packed {

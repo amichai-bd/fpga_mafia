@@ -1,3 +1,16 @@
+//-----------------------------------------------------------------------------
+// Title            : instruction cache top
+// Project          : IFU - instruction fetch unit
+//-----------------------------------------------------------------------------
+// File             : i_cache_top.sv
+// Original Author  : 
+// Code Owner       : 
+// Adviser          : 
+// Created          : 11/2024
+//-----------------------------------------------------------------------------
+// Description      : 16 way fully associative instruction cache.
+//-----------------------------------------------------------------------------
+
 `include "macros.vh"
 
 
@@ -22,7 +35,7 @@ i_cache i_cache
     .pcQ100H(pcQ100H),
     .i_mem2cache_rsp(i_mem2cache_rsp),
     .lru_tag(lru_tag),
-    .cache2i_mem_req(i_mem2cache_rsp),
+    .cache2i_mem_req(cache2i_mem_req),
     .cache2core_rsp(cache2core_rsp),
     .plru_ctrl(plru_ctrl)
 );
