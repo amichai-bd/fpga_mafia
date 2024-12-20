@@ -49,7 +49,7 @@ always_ff@(posedge Clock) begin
     insLineValidOut <= 0;  // Default to invalid unless explicitly set
     //handle cache miss
     if (!insLineValidOut && insLineValidIn) begin
-        int freeLine = -1;
+        static int freeLine = -1;
         //checks if there any empty cache lines before using the PLRU 
         for (int i = 0 ; i < NUM_TAGS ; i++)begin
             if (!tagArray[i].valid)begin
@@ -92,8 +92,8 @@ end
 
 
 task updatePLruTree(inout logic [NUM_LINES - 2 : 0 ] tree , input int line );
-    int index = 0;
-    int Tree_Depth = $clog2(NUM_LINES) - 1;
+    static int index = 0;
+    static int Tree_Depth = $clog2(NUM_LINES) - 1;
     for(int layer = Tree_Depth ; layer >= 0 ; layer--)begin
         tree[index] <= (line >> layer) & 1;
         index = (index << 1) | ((line >> layer) & 1);
@@ -102,7 +102,7 @@ endtask
 
 
 function int getPLRUIndex(logic [NUM_LINES - 2 : 0 ] tree);
-    int index = 0;
+    static int index = 0;
     while(index < NUM_LINES - 1 ) begin
         //updates the index to search in the next layer in the tree, tree[index] chooses the left or the left node
         index = (index << 1) | tree[index]; 
