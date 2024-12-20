@@ -31,7 +31,8 @@ import ifu_pkg::*;
     // when cache is full the fill/eviction in case of miss will be determined by the PLRU and not the counter
     logic [$clog2(WAYS_NUM)-1:0] counter; 
     logic counter_en;
-    assign counter_en = ((counter < 4'hf) && (cache_ctrl_plru.cache_miss));
+    // enable the counter when the cache is not full and we want to update the tree
+    assign counter_en = ((counter < 4'hf) && (cache_ctrl_plru.update_tree)); 
     `MAFIA_EN_RST_DFF(counter, counter+1, clk, counter_en, rst)
 
     /*                     PLRU tree representation
