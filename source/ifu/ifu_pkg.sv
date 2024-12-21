@@ -9,7 +9,6 @@ parameter LINE_WIDTH = 128;    // Width of each cache line
 parameter OFFSET_WIDTH = 4;   // Width of each offset
 
  typedef struct packed {
-        bit eviction;             // Eviction bit
         bit valid;                  // Valid bit
         logic [TAG_WIDTH-1:0] tag;  // Tag value
  } tag_arr_t;

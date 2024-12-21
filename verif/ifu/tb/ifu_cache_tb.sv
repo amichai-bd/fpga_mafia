@@ -1,92 +1,111 @@
-`timescale 1ns/1ps
+`timescale 1ns / 1ps
 
-module ifu_cache_tb;
+module tb_ifu_cache;
 
 import ifu_pkg::*;
 
-    // Parameters (you need to define these values appropriately)
-    parameter NUM_TAGS = 16;      // Number of tags
-    parameter NUM_LINES = 16;     // Number of lines: should be equal to number of tags
-    parameter TAG_WIDTH = 30;     // Width of each tag: evacuation_bit + valid_bit + tag_bits = 1 + 1 + 28
-    parameter LINE_WIDTH = 128;    // Width of each cache line
-    parameter OFFSET_WIDTH = 4;
+    // Testbench parameters
+    localparam NUM_TAGS = 4;           // Example number of tags (set this as per your requirement)
+    localparam NUM_LINES = 4;          // Example number of cache lines
+    localparam TAG_WIDTH = 6;          // Example tag width
+    localparam LINE_WIDTH = 32;        // Example line width (could be 32 bits per cache line)
+    localparam ADDR_WIDTH = 32;        // Example address width (could be 32-bit address)
+    localparam OFFSET_WIDTH = 5;       // Example offset width for 32-bit word size (log2(32) = 5)
 
-    // Inputs
+    // Testbench signals
     logic Clock;
     logic Rst;
-    logic [31:0] pc;
-    logic [127:0] insLineIn;
-    logic insLineValidIn;
+    logic [ADDR_WIDTH-1:0] cpu_reqAddrIn;
+    logic [ADDR_WIDTH-1:0] cpu_rspAddrOut;
+    logic [LINE_WIDTH-1:0] cpu_rspInsLineOut;
+    logic cpu_rspInsLineValidOut;
+    logic [TAG_WIDTH-1:0] mem_rspTagIn;
+    logic [LINE_WIDTH-1:0] mem_rspInsLineIn;
+    logic mem_rspInsLineValidIn;
+    logic [TAG_WIDTH-1:0] mem_reqTagOut;
+    logic mem_reqTagValidOut;
 
-    // Outputs
-    logic [127:0] insLineOut;
-    logic insLineValidOut;
-
-    // DUT instance
+    // Instantiate the ifu_cache module
     ifu_cache #(
         .NUM_TAGS(NUM_TAGS),
         .NUM_LINES(NUM_LINES),
         .TAG_WIDTH(TAG_WIDTH),
-        .OFFSET_WIDTH(OFFSET_WIDTH),
-        .LINE_WIDTH(LINE_WIDTH)
-    ) dut (
+        .LINE_WIDTH(LINE_WIDTH),
+        .ADDR_WIDTH(ADDR_WIDTH),
+        .OFFSET_WIDTH(OFFSET_WIDTH)
+    ) uut (
         .Clock(Clock),
         .Rst(Rst),
-        .pc(pc),
-        .insLineIn(insLineIn),
-        .insLineValidIn(insLineValidIn),
-        .insLineOut(insLineOut),
-        .insLineValidOut(insLineValidOut)
+        .cpu_reqAddrIn(cpu_reqAddrIn),
+        .cpu_rspAddrOut(cpu_rspAddrOut),
+        .cpu_rspInsLineOut(cpu_rspInsLineOut),
+        .cpu_rspInsLineValidOut(cpu_rspInsLineValidOut),
+        .mem_rspTagIn(mem_rspTagIn),
+        .mem_rspInsLineIn(mem_rspInsLineIn),
+        .mem_rspInsLineValidIn(mem_rspInsLineValidIn),
+        .mem_reqTagOut(mem_reqTagOut),
+        .mem_reqTagValidOut(mem_reqTagValidOut)
     );
 
     // Clock generation
-    initial begin
-        Clock = 0;
-        forever #5 Clock = ~Clock; // 10ns clock period
+    always begin
+        #5 Clock = ~Clock; // 100 MHz clock period
     end
 
     // Test sequence
     initial begin
-        // Initialize inputs
-        Rst = 1;
-        pc = 32'd0;
-        insLineIn = 128'h0;
-        insLineValidIn = 0;
+        // Initialize signals
+        Clock = 0;
+        Rst = 0;
+        cpu_reqAddrIn = 0;
+        mem_rspTagIn = 0;
+        mem_rspInsLineIn = 0;
+        mem_rspInsLineValidIn = 0;
 
         // Apply reset
+        Rst = 1;
         #10 Rst = 0;
 
-        // Test Case 1: Add instruction line
-        @(posedge Clock);
-        pc = 32'h1000;
-        insLineIn = 128'hDEADBEEFCAFEBABEDEADBEEFCAFEBABE;
-        insLineValidIn = 1;
+        // Test Case 1: CPU makes a request to the cache (miss scenario)
+        cpu_reqAddrIn = 32'h00000000; // Address 0x00000000
+        #10;  // Wait for 1 clock cycle
+        mem_rspTagIn = 6'h1;  // Tag response from memory (example value)
+        mem_rspInsLineIn = 32'hDEADBEEF; // Data from memory (example data)
+        mem_rspInsLineValidIn = 1; // Memory line valid
+        #10;  // Wait for 1 clock cycle to observe cache miss handling
 
-        @(posedge Clock);
-        insLineValidIn = 0; // Stop inputting instructions
+        // Test Case 2: CPU makes another request to the same address (hit scenario)
+        cpu_reqAddrIn = 32'h00000000; // Address 0x00000000 (same as before)
+        #10;  // Wait for 1 clock cycle
+        // No need to provide memory response as the data should be in cache now
+        #10;  // Wait for response
 
-        // Wait for one cycle
+        // Test Case 3: CPU makes a request to a different address (miss scenario)
+        cpu_reqAddrIn = 32'h00000010; // Address 0x00000010 (different address)
+        #10;  // Wait for 1 clock cycle
+        mem_rspTagIn = 6'h2;  // Tag response from memory (example value)
+        mem_rspInsLineIn = 32'hCAFEBABE; // Data from memory (example data)
+        mem_rspInsLineValidIn = 1; // Memory line valid
+        #10;  // Wait for 1 clock cycle to observe cache miss handling
+
+        // Test Case 4: Simulate further requests to check cache replacement
+        cpu_reqAddrIn = 32'h00000020; // Address 0x00000020 (new address)
+        #10;
+        mem_rspTagIn = 6'h3;
+        mem_rspInsLineIn = 32'hFEEDC0DE;
+        mem_rspInsLineValidIn = 1;
+        #10;
+        cpu_reqAddrIn = 32'h00000000; // Back to first address (to check if data is still cached)
         #10;
 
-        // Test Case 2: Fetch instruction line
-        @(posedge Clock);
-        pc = 32'h1000; // Same PC to check if the data is valid
-
-        // Wait for one cycle
-        #10;
-
-        // Test Case 3: Invalid PC
-        @(posedge Clock);
-        pc = 32'h2000; // PC not in cache
-
-        // End simulation
-        #50 $stop;
+        // End of test
+        $stop;
     end
 
-    // Monitor outputs for debugging
+    // Monitor outputs
     initial begin
-        $monitor("Time: %0t | Clock: %b | Rst: %b | PC: %h | insLineIn: %h | insLineValidIn: %b | insLineOut: %h | insLineValidOut: %b",
-                 $time, Clock, Rst, pc, insLineIn, insLineValidIn, insLineOut, insLineValidOut);
+        $monitor("At time %t, CPU requested addr: %h, Response addr: %h, Line: %h, Valid: %b", 
+                 $time, cpu_reqAddrIn, cpu_rspAddrOut, cpu_rspInsLineOut, cpu_rspInsLineValidOut);
     end
 
 endmodule
