@@ -33,7 +33,7 @@ import ifu_pkg::*;
     logic [$clog2(WAYS_NUM):0] counter; 
     logic counter_en;
     // enable the counter when the cache is not full and we want to update the tree
-    assign counter_en = ((counter < 5'hf) && (cache_ctrl_plru.update_tree)); 
+    assign counter_en = ((counter < 5'h10) && (cache_ctrl_plru.update_tree));   
     `MAFIA_EN_RST_DFF(counter, counter+1, clk, counter_en, rst)
 
     /*                     PLRU tree representation
@@ -50,21 +50,21 @@ import ifu_pkg::*;
     ***********************************************************************/
     logic  cache_miss_and_not_full;
     logic  cache_full;
-    assign cache_full   = (counter > 5'hf) ? 1'b1 : 1'b0;
-    assign cache_miss_and_not_full = (!cache_full) && cache_ctrl_plru.cache_miss;
+    assign cache_full   = (counter == 5'h10) ? 1'b1 : 1'b0;  // when the counter reached 0x10 we fill CL's 0-f 
+    assign cache_miss_and_not_full = ((!cache_full) && (cache_ctrl_plru.cache_miss));
 
     // "cache_miss_and_not_full" - in that case we fill the cache with the next available cache line pointed by the counter. 
     // must update the tree and send next cache line for eviction
     // "!cache miss" - in that case we only need to update the tree without any eviction 
     always_comb begin
         evicted_cl = 0;
-        if(cache_miss_and_not_full) begin
+        if(cache_miss_and_not_full) begin  // miss and cache is not full- the evicted CL is the counter
             update_tree(counter);
             evicted_cl = counter;
-        end else if(!cache_ctrl_plru.cache_miss) begin
+        end else if(!cache_ctrl_plru.cache_miss) begin  // hit
             update_tree(cache_ctrl_plru.hit_cl);
-        end else begin // case of miss
-            search_evicted(evicted_cl);
+        end else begin // case of miss while the cache is full
+            search_evicted(evicted_cl);   
             update_tree(evicted_cl);
         end
     end
@@ -258,16 +258,16 @@ task search_evicted(output logic [$clog2(WAYS_NUM)-1:0] evicted_cl);
             end
         end
 
-        // Map the current_node to the evicted cache line
+        // Map the current_node to the opposite (plru algorithm) evicted cache line
         case (current_node)
-            4'h7: evicted_cl = (plru_tree_nodes[current_node].next_node_is_left) ? 4'h0 : 4'h1;
-            4'h8: evicted_cl = (plru_tree_nodes[current_node].next_node_is_left) ? 4'h2 : 4'h3;
-            4'h9: evicted_cl = (plru_tree_nodes[current_node].next_node_is_left) ? 4'h4 : 4'h5;
-            4'hA: evicted_cl = (plru_tree_nodes[current_node].next_node_is_left) ? 4'h6 : 4'h7;
-            4'hB: evicted_cl = (plru_tree_nodes[current_node].next_node_is_left) ? 4'h8 : 4'h9;
-            4'hC: evicted_cl = (plru_tree_nodes[current_node].next_node_is_left) ? 4'hA : 4'hB;
-            4'hD: evicted_cl = (plru_tree_nodes[current_node].next_node_is_left) ? 4'hC : 4'hD;
-            4'hE: evicted_cl = (plru_tree_nodes[current_node].next_node_is_left) ? 4'hE : 4'hF;
+            4'h7: evicted_cl = (plru_tree_nodes[current_node].next_node_is_left) ? 4'h1 : 4'h0;
+            4'h8: evicted_cl = (plru_tree_nodes[current_node].next_node_is_left) ? 4'h3 : 4'h2;
+            4'h9: evicted_cl = (plru_tree_nodes[current_node].next_node_is_left) ? 4'h5 : 4'h4;
+            4'hA: evicted_cl = (plru_tree_nodes[current_node].next_node_is_left) ? 4'h7 : 4'h6;
+            4'hB: evicted_cl = (plru_tree_nodes[current_node].next_node_is_left) ? 4'h9 : 4'h8;
+            4'hC: evicted_cl = (plru_tree_nodes[current_node].next_node_is_left) ? 4'hB : 4'hA;
+            4'hD: evicted_cl = (plru_tree_nodes[current_node].next_node_is_left) ? 4'hD : 4'hC;
+            4'hE: evicted_cl = (plru_tree_nodes[current_node].next_node_is_left) ? 4'hF : 4'hE;
             default: evicted_cl = current_node; 
         endcase
     end

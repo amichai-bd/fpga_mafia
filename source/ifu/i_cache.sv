@@ -91,9 +91,9 @@ end
 //  data, tag and valid arr
 // ---------------------------
 logic latch_enable_fill;
-`MAFIA_RST_LATCH(data_arr[lru_tag], i_mem2cache_rsp.filled_instruction, latch_enable_fill, rst)
-`MAFIA_RST_LATCH(tag_address_arr[lru_tag], i_mem2cache_rsp.address[31:4], latch_enable_fill, rst)
-`MAFIA_RST_LATCH(tag_valid_arr[lru_tag], 1'b1, latch_enable_fill, rst)
+`MAFIA_LATCH(data_arr[lru_tag], i_mem2cache_rsp.filled_instruction, latch_enable_fill)
+`MAFIA_LATCH(tag_address_arr[lru_tag], i_mem2cache_rsp.address[31:4], latch_enable_fill)
+`MAFIA_LATCH(tag_valid_arr[lru_tag], 1'b1, latch_enable_fill)
 
 
 //--------------------------
@@ -131,18 +131,6 @@ always_comb begin
     endcase
 end
 
-`MAFIA_RST_DFF(prev_hit_index_q0, hit_index_q0, clk, rst)
-assign new_hit_index_q0 = (prev_hit_index_q0 != hit_index_q0);
-assign cache_full = (tag_valid_arr == 16'hffff);
-
-assign plru_ctrl.update_tree = (state == FILL_DATA_ARR) || ((new_hit_index_q0) && (cache_full)); // update the tree when there is a miss or hit in different CL's
-//assign plru_ctrl.update_tree = (state == FILL_DATA_ARR);
-assign plru_ctrl.hit_cl      = hit_index_q0;
-assign plru_ctrl.cache_miss  = (!cache_hit_q0) || (state == FILL_DATA_ARR);  // FIXME - at this state the data is already in the cache. 
-                                                                             //         back pressure to the core will be disabled cycle later
-                                                                             //         its still ok cause we dont by pass the data directrly to the core when
-                                                                             //         we have fill. we first fill and then send to core
-
 always_comb begin: state_transition
     next_state = state;
     case(state)
@@ -165,6 +153,22 @@ always_comb begin: state_transition
 
     endcase
 end
+
+
+`MAFIA_RST_DFF(prev_hit_index_q0, hit_index_q0, clk, rst)
+assign new_hit_index_q0 = ((prev_hit_index_q0 != hit_index_q0)); 
+assign cache_full = (tag_valid_arr == 16'hffff);
+
+logic update_tree_at_the_fill, update_tree_when_hit;
+assign update_tree_at_the_fill = (state == FILL_DATA_ARR);
+assign update_tree_when_hit    = ((new_hit_index_q0) && (cache_hit_q0) && (cache_full));   
+
+assign plru_ctrl.update_tree = (update_tree_at_the_fill || update_tree_when_hit);  // update the tree when there is a miss or hit in different CL's
+assign plru_ctrl.hit_cl      = hit_index_q0;
+assign plru_ctrl.cache_miss  = (!cache_hit_q0) || (state == FILL_DATA_ARR);  // FIXME - at this state the data is already in the cache. 
+                                                                             //         back pressure to the core will be disabled cycle later
+                                                                             //         its still ok cause we dont by pass the data directrly to the core when
+                                                                             //         we have fill. we first fill and then send to core
 
 
 
