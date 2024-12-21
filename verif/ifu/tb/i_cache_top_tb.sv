@@ -30,55 +30,81 @@ initial begin
     end
 end
 
+integer i;
 initial begin: main_tb
     rst = 1;
-    #20
-    @(posedge clk)
+    #20;
+    @(posedge clk);
 
     /**************************************
-    / miss scenario at startup and then hit
+    / First miss scenario at startup
     ***************************************/
-    //access the cache in the first time - miss scenario
     rst = 0;
     pcQ100H = 32'h0000_beef;  // tag = 'bee'. offset = '3'
     i_mem2cache_rsp.valid = 0;
-    #80
-    @(posedge clk)
+    #80;
+    @(posedge clk);
 
-    //the imem returns the data at 32'h0000_beef address
+    // The imem returns the data at 32'h0000_beef address
     i_mem2cache_rsp.valid = 1;
     i_mem2cache_rsp.address = 32'h0000_beef;
     i_mem2cache_rsp.filled_instruction = 128'h01000000_02000000_03000000_04000000;
-    #30
-    @(posedge clk)
-    
-    // hit at 32'h0000_beef address
-    #20
-    @(posedge clk)
-    
-    // hit at 32'h0000_bee8 address
+    #30;
+    @(posedge clk);
+
+    // Hit at 32'h0000_beef address
+    #20;
+    @(posedge clk);
+
+    // Hit at 32'h0000_bee8 address
     pcQ100H = 32'h0000_bee8;  // tag = 'bee'. offset = '2'
-    #20
-    @(posedge clk)
+    #20;
+    @(posedge clk);
 
-    /**************************
-    / second miss scenario 
-    **************************/
-    pcQ100H = 32'h0000_dea4;  // tag = 'dea'. offset = '1'
-    i_mem2cache_rsp.valid = 0;
-    #80
-    @(posedge clk)
+    /**************************************
+    / Fill all 16 ways of the cache
+    ***************************************/
+    for (integer i = 1; i < WAYS_NUM; i++) begin
+        // Generate a unique address for each way
+        pcQ100H = 32'h0000_0000 + (i * 32);  // Adjust as per cache indexing logic
+        i_mem2cache_rsp.valid = 0;
+        #80;
+        @(posedge clk);
 
-     //the imem returns the data at 32'h0000_beea address
-    i_mem2cache_rsp.valid = 1;
-    i_mem2cache_rsp.address = 32'h0000_dea4;
-    i_mem2cache_rsp.filled_instruction = 128'h01000000_02000000_03000022_04000000;
-    #80
-    @(posedge clk)
+        // Simulate a miss and load data into the cache
+        i_mem2cache_rsp.valid = 1;
+        i_mem2cache_rsp.address = pcQ100H;
+        i_mem2cache_rsp.filled_instruction = 
+            128'h01000000_02000000_03000000_04000000 + (i * 100);  // Unique data for each way
+        #80;
+        @(posedge clk);
 
+        // Simulate a hit for the same address
+        pcQ100H = pcQ100H;  // Same address for a hit
+        #40;
+        @(posedge clk);
+    end
+
+    $display("cache is full at %t", $time);
+
+    /***********************************************************
+    / Test PLRU updates by accessing two different cache lines
+    / The cache lines are already in the cache - hit 
+    ***********************************************************/
+    // Access cache line 1
+    pcQ100H = 32'h0000_0020;  
+    #40
+    @(posedge clk);  // Simulate a hit for this tag
+
+    // Access cache line 2
+    pcQ100H = 32'h0000_0040;  
+
+    @(posedge clk);  // Simulate a hit for this tag
+    #40
 
     $finish;
 end
+
 
 // force finish by timeout
 parameter V_TIMEOUT = 10000;
