@@ -44,7 +44,7 @@ output logic dataInsertion
 ///////////////////
 // tag array
 tag_arr_t tagArray [NUM_TAGS];
-logic [TAG_WIDTH - OFFSET_WIDTH - 1 : 0 ] cpu_reqTagIn;
+logic [ADDR_WIDTH - 1  : OFFSET_WIDTH-1 ] cpu_reqTagIn;
 
 // data array
 data_arr_t dataArray [NUM_LINES];
@@ -61,7 +61,7 @@ logic [NUM_LINES - 2 : 0 ] plruTree;
 /////////////
 // Assigns //
 /////////////
-assign cpu_reqTagIn = cpu_reqAddrIn[TAG_WIDTH-1:OFFSET_WIDTH];
+assign cpu_reqTagIn = cpu_reqAddrIn[ADDR_WIDTH-1:OFFSET_WIDTH-1];
 assign hitStatus = |hitArray;
 assign mem_reqTagValidOut = !hitStatus;
 assign dataInsertion = (mem_reqTagValidOut == VALID) && (mem_rspInsLineValidIn == VALID) && (mem_reqTagOut == mem_rspTagIn);
@@ -80,7 +80,6 @@ always_comb begin
             dataArray[i] = 0; // maybe we need to reset also the data array to zero
             hitArray[i] = 0;
         end
-        cpu_rspAddrOut = 0;
         plruTree = 0;
     end
 
@@ -107,7 +106,7 @@ always_comb begin
         updatePLruTree(plruTree,hitPosition);
     end else begin // miss handling
         cpu_rspInsLineValidOut = !VALID; // we do not have the line in cache
-        mem_reqTagOut = cpu_reqAddrIn; 
+        mem_reqTagOut = cpu_reqTagIn; 
     end
 
 ////////////////////
