@@ -250,7 +250,7 @@ task search_evicted(output logic [$clog2(WAYS_NUM)-1:0] evicted_cl);
         current_node = 0;
 
         // Traverse the tree
-        for (integer i = 0; i < depth; i++) begin
+        for (integer i = 0; i < depth-1; i++) begin
             if (plru_tree_nodes[current_node].next_node_is_left) begin
                 current_node = (current_node << 1) + 2; // Go to right child
             end else begin
@@ -268,7 +268,7 @@ task search_evicted(output logic [$clog2(WAYS_NUM)-1:0] evicted_cl);
             4'hC: evicted_cl = (plru_tree_nodes[current_node].next_node_is_left) ? 4'hA : 4'hB;
             4'hD: evicted_cl = (plru_tree_nodes[current_node].next_node_is_left) ? 4'hC : 4'hD;
             4'hE: evicted_cl = (plru_tree_nodes[current_node].next_node_is_left) ? 4'hE : 4'hF;
-            default: evicted_cl = 4'h0; 
+            default: evicted_cl = current_node; 
         endcase
     end
 endtask

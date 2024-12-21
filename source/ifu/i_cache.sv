@@ -42,8 +42,10 @@ logic        fill_requested_address_valid_q0;   // valid bit indicated that the 
 logic [31:0] instruction2core_q0;               // instruction to core    
 logic        instruction2core_valid_q0;         // the instruction is valid
 
-logic [$clog2(WAYS_NUM)-1:0] hit_index_q0;        // stores the index of the location of hit CL
+logic [$clog2(WAYS_NUM)-1:0] prev_hit_index_q0, hit_index_q0;        // stores the index of the location of hit CL
+logic                        new_hit_index_q0; // when there is a hit in different CL's we need to update the PLRU tree
 
+logic                        cache_full;
 //--------------------------
 //     hit detection 
 // -------------------------
@@ -129,7 +131,12 @@ always_comb begin
     endcase
 end
 
-assign plru_ctrl.update_tree = (state == FILL_DATA_ARR); // update tree when there is a miss or when there is a hit 
+`MAFIA_RST_DFF(prev_hit_index_q0, hit_index_q0, clk, rst)
+assign new_hit_index_q0 = (prev_hit_index_q0 != hit_index_q0);
+assign cache_full = (tag_valid_arr == 16'hffff);
+
+assign plru_ctrl.update_tree = (state == FILL_DATA_ARR) || ((new_hit_index_q0) && (cache_full)); // update the tree when there is a miss or hit in different CL's
+//assign plru_ctrl.update_tree = (state == FILL_DATA_ARR);
 assign plru_ctrl.hit_cl      = hit_index_q0;
 assign plru_ctrl.cache_miss  = (!cache_hit_q0) || (state == FILL_DATA_ARR);  // FIXME - at this state the data is already in the cache. 
                                                                              //         back pressure to the core will be disabled cycle later

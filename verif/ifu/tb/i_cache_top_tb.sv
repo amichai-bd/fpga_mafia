@@ -102,6 +102,22 @@ initial begin: main_tb
     @(posedge clk);  // Simulate a hit for this tag
     #40
 
+    /***********************************************************
+    / Miss scenario after cache is full
+    / This should trigger a replacement and update LRU
+    ***********************************************************/
+    pcQ100H = 32'h0001_0000;  // A new address not in the cache
+    i_mem2cache_rsp.valid = 0;
+    #80;
+    @(posedge clk);
+
+    // The imem returns the data at 32'h0001_0000 address
+    i_mem2cache_rsp.valid = 1;
+    i_mem2cache_rsp.address = pcQ100H;
+    i_mem2cache_rsp.filled_instruction = 128'hAA000000_BB000000_CC000000_DD000000;  
+    #80;
+    @(posedge clk);
+
     $finish;
 end
 
