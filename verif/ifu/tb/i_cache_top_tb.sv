@@ -118,6 +118,32 @@ initial begin: main_tb
     #80;
     @(posedge clk);
 
+     /**********************************
+    / Two hits and another miss scenario
+    ************************************/
+    // Hit on cache line 3
+    pcQ100H = 32'h0000_0060;  
+    #40;
+    @(posedge clk);
+
+    // Hit on cache line 4
+    pcQ100H = 32'h0000_0080;  
+    #40;
+    @(posedge clk);
+
+    // Another miss scenario
+    pcQ100H = 32'h0001_0020;  // Another new address not in the cache
+    i_mem2cache_rsp.valid = 0;
+    #80;
+    @(posedge clk);
+
+    // The imem returns the data at 32'h0001_0020 address
+    i_mem2cache_rsp.valid = 1;
+    i_mem2cache_rsp.address = pcQ100H;
+    i_mem2cache_rsp.filled_instruction = 128'hFF000000_EE000000_DD000000_CC000000;  
+    #80;
+    @(posedge clk);
+
     $finish;
 end
 
