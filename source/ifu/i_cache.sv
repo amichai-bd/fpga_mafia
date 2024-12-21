@@ -129,9 +129,12 @@ always_comb begin
     endcase
 end
 
-assign plru_ctrl.update_tree = (state == FILL_DATA_ARR) ? 1'b1 : 1'b0;
+assign plru_ctrl.update_tree = (state == FILL_DATA_ARR); // update tree when there is a miss or when there is a hit 
 assign plru_ctrl.hit_cl      = hit_index_q0;
-assign plru_ctrl.cache_miss  = !cache_hit_q0;
+assign plru_ctrl.cache_miss  = (!cache_hit_q0) || (state == FILL_DATA_ARR);  // FIXME - at this state the data is already in the cache. 
+                                                                             //         back pressure to the core will be disabled cycle later
+                                                                             //         its still ok cause we dont by pass the data directrly to the core when
+                                                                             //         we have fill. we first fill and then send to core
 
 always_comb begin: state_transition
     next_state = state;
