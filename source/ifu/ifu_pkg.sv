@@ -36,7 +36,7 @@ typedef enum {
 typedef struct packed {
     logic                        update_tree;
     logic [$clog2(WAYS_NUM)-1:0] hit_cl;    // index of hitted cache line
-    logic                        cache_miss;    
+    logic                        cache_miss;   
 } t_cache_ctrl_plru;
 
 typedef struct packed {
