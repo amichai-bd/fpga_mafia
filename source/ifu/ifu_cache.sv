@@ -1,8 +1,7 @@
 
 `include "macros.vh"
 
-module ifu_cache_tb
-
+module ifu_cache
 import ifu_pkg::*;
 
 #( 
@@ -29,19 +28,16 @@ input logic [TAG_WIDTH-1:0] mem_rspTagIn, // tag of the line provide by response
 input logic [LINE_WIDTH-1:0] mem_rspInsLineIn, // the line provided in the response of the memory
 input logic mem_rspInsLineValidIn, // the line is ready in the response and can be read by the cache
 output logic [TAG_WIDTH-1:0] mem_reqTagOut, // tag requested by the cache from the memory
-output logic mem_reqTagValidOut // there is a request for the tag to be brought from the memory
+output logic mem_reqTagValidOut, // there is a request for the tag to be brought from the memory
 
 // Prefetcher Interface
 // to be added
+//
+output logic dataInsertion
 
 );
 
-/////////////////////////////
-// Local Parameter Defines //
-/////////////////////////////
-localparam logic HIT   = 1'b1;  // Indicates a hit
-localparam logic MISS  = 1'b0;  // Indicates a miss
-localparam logic VALID = 1'b1;  // Indicates validity
+
 
 ///////////////////
 // Logic Defines //
@@ -52,7 +48,7 @@ logic [TAG_WIDTH - OFFSET_WIDTH - 1 : 0 ] cpu_reqTagIn;
 
 // data array
 data_arr_t dataArray [NUM_LINES];
-logic dataInsertion;
+// logic dataInsertion;
 
 // hit status
 logic [$clog2(NUM_TAGS)-1:0] hitPosition; // synthesizable calculated in compilation time 
