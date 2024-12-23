@@ -78,11 +78,11 @@ always_comb begin
     instruction2core_q0       = 0;
     if(cache_hit_q0) begin  
         case(requested_cl_offset_q0) 
-            2'b00: instruction2core_q0       = data_arr[hit_index_q0][31:0];
-            2'b01: instruction2core_q0       = data_arr[hit_index_q0][63:32];
-            2'b10: instruction2core_q0       = data_arr[hit_index_q0][95:64];
-            2'b11: instruction2core_q0       = data_arr[hit_index_q0][127:96];
-            default : ; // do nothing
+            2'b00   : instruction2core_q0  = data_arr[hit_index_q0][31:0];
+            2'b01   : instruction2core_q0  = data_arr[hit_index_q0][63:32];
+            2'b10   : instruction2core_q0  = data_arr[hit_index_q0][95:64];
+            2'b11   : instruction2core_q0  = data_arr[hit_index_q0][127:96];
+            default : instruction2core_q0  = '0;
         endcase
     end
 end
@@ -174,6 +174,7 @@ assign plru_ctrl.cache_miss  = (!cache_hit_q0) || (state == FILL_DATA_ARR);  // 
 
 // we want that in case of hit the instruction will go to core at q101H cycle
 // so thats the reason we add extra FF 
+// this is also done for timing reasons to shorter the data path 
 `MAFIA_RST_DFF(cache2core_rsp.requested_instruction,instruction2core_q0,clk,rst)
 `MAFIA_RST_DFF(cache2core_rsp.requested_instruction_valid,instruction2core_valid_q0,clk,rst)
 
