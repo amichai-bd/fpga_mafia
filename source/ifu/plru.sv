@@ -12,6 +12,7 @@
 //-----------------------------------------------------------------------------
 
 `include "macros.vh"
+`include "plru_macros.vh"
 
 module plru
 import ifu_pkg::*;
@@ -56,21 +57,22 @@ import ifu_pkg::*;
     // "cache_miss_and_not_full" - in that case we fill the cache with the next available cache line pointed by the counter. 
     // must update the tree and send next cache line for eviction
     // "!cache miss" - in that case we only need to update the tree without any eviction 
+  
     always_comb begin
         evicted_cl = 0;
         if(cache_miss_and_not_full) begin  // miss and cache is not full- the evicted CL is the counter
-            update_tree(counter);
+            `UPDATE_TREE(counter);
             evicted_cl = counter;
         end else if(!cache_ctrl_plru.cache_miss) begin  // hit
-            update_tree(cache_ctrl_plru.hit_cl);
+            `UPDATE_TREE(cache_ctrl_plru.hit_cl);
         end else begin // case of miss while the cache is full
-            search_evicted(evicted_cl);   
-            update_tree(evicted_cl);
+            `SEARCH_EVICTED(evicted_cl);   
+            `UPDATE_TREE(evicted_cl);
         end
     end
 
 
-
+/*  TODO - remove those tasks after debug. macros added instead
 task update_tree(input logic [$clog2(WAYS_NUM)-1:0] node);
     begin
         next_plru_tree_nodes = plru_tree_nodes;  // Initialize the next state
@@ -272,7 +274,7 @@ task search_evicted(output logic [$clog2(WAYS_NUM)-1:0] evicted_cl);
         endcase
     end
 endtask
-
+*/
 
 
 endmodule
