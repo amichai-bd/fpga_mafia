@@ -3,15 +3,6 @@
 
 module ifu_cache
 import ifu_pkg::*;
-
-#( 
-    parameter NUM_TAGS,      // Number of tags
-    parameter NUM_LINES,     // Number of lines: should be equal to number of tags
-    parameter TAG_WIDTH,     // Width of each tag
-    parameter LINE_WIDTH,    // Width of each cache line
-    parameter ADDR_WIDTH,    // Width of each address
-    parameter OFFSET_WIDTH   // Width of offset bits in address
-)
 (
 // Chip Signals
 input logic Clock,
@@ -37,8 +28,6 @@ output logic dataInsertion
 
 );
 
-
-
 ///////////////////
 // Logic Defines //
 ///////////////////
@@ -63,9 +52,6 @@ logic [NUM_LINES - 2 : 0 ] plruTree;
 logic [NUM_LINES - 2 : 0] updatedTree; // Holds the updated PLRU tree
 logic [$clog2(NUM_LINES) - 1 : 0] plruIndex; // Holds the LRU index
 
-
-
-
 /////////////
 // Assigns //
 /////////////
@@ -75,11 +61,25 @@ assign mem_reqTagValidOut = !hitStatus;
 assign dataInsertion = (mem_reqTagValidOut == VALID) && (mem_rspInsLineValidIn == VALID) && (mem_reqTagOut == mem_rspTagIn);
 
 
+////////////////
+// Hit Status //
+////////////////
+always_comb begin 
+    for (int i = 0 ; i < NUM_TAGS; i++) begin
+        if (cpu_reqTagIn == tagArray[i].tag && tagArray[i].valid == VALID) begin
+            hitArray[i] = 1;
+            hitPosition = i;
+            cpu_rspAddrOut = cpu_reqAddrIn;
+        end else begin
+            hitArray[i] = 0;
+        end
+    end
+end
+
 
 ///////////////////////////
 // Always ff Statement //
 ///////////////////////////
-
 always_ff @(posedge Clock or posedge Rst) begin
 
 /////////////////
@@ -90,56 +90,47 @@ always_ff @(posedge Clock or posedge Rst) begin
         for (int i = 0 ; i < NUM_TAGS ; i++) begin
             tagArray[i] <= 0;
             dataArray[i] <= 0; 
-            hitArray[i] <= 0;
         end
         plruTree <= 0;         // Reset PLRU tree
     end 
+
+    if (hitStatus == HIT) begin
+        plruTree <= updatedTree; //updates the plru tree when there is a hit
+    end
+    
+    if(dataInsertion) begin
+        dataArray[freeLine] = mem_rspInsLineIn;
+        tagArray[freeLine].valid = VALID;
+        tagArray[freeLine].tag = mem_rspTagIn;
+        plruTree = updatedTree;    
+    end
+    
 end
-
-
-
 
 
 ///////////////////////////
 // Always Comb Statement //
 ///////////////////////////
 
-
-always_comb begin 
-////////////////
-// Hit Status //
-////////////////
-    for (int i = 0 ; i < NUM_TAGS; i++) begin
-        if (cpu_reqTagIn == tagArray[i].tag && tagArray[i].valid == VALID) begin
-            hitArray[i] = 1;
-            hitPosition = i;
-            cpu_rspAddrOut = cpu_reqAddrIn;
-        end else begin
-            hitArray[i] = 0;
-        end
-    end
-
+always_comb begin
 //////////////////
 // Cache Action //
 //////////////////
     if(hitStatus == HIT) begin // hit handling 
         cpu_rspInsLineOut = dataArray[hitPosition];
         cpu_rspInsLineValidOut = VALID; // we have the line in cache
-        lineForPLRU = hitPosition; // Use hitPosition for a cache hit
-        plruTree = updatedTree; //updates the plru tree when there is a hit
-
-    end else begin // miss handling
+        
+    end else begin // miss handling      
         cpu_rspInsLineValidOut = !VALID; // we do not have the line in cache
         mem_reqTagOut = cpu_reqTagIn; 
-        lineForPLRU = freeLine;    // Use freeLine for a cache miss
     end
-
 ////////////////////
 // Line Insertion //
 ////////////////////
     if (dataInsertion) begin
 
         freeLineValid = 0;
+        freeLine = 0;
         //checks if there any empty cache lines before using the PLRU 
         for (int i = 0 ; i < NUM_TAGS ; i++)begin
             if (!tagArray[i].valid)begin
@@ -152,11 +143,8 @@ always_comb begin
         if (freeLineValid == 0)begin
             freeLine = plruIndex;
         end
-        dataArray[freeLine] = mem_rspInsLineIn;
-        tagArray[freeLine].valid = VALID;
-        tagArray[freeLine].tag = mem_rspTagIn;
-
-        plruTree = updatedTree;    
+        
+        lineForPLRU = freeLine;    // Use freeLine for a cache miss
     end
 end // always_comb end
 
@@ -165,7 +153,7 @@ end // always_comb end
 ///////////////
 
 //Updates the PLRU tree after a hit or replacement.
-module updatePLruTree #(parameter NUM_LINES = 16)(
+module updatePLruTree (
     input logic [NUM_LINES - 2 : 0] currentTree,
     input logic [$clog2(NUM_LINES) - 1 : 0] line,
     output logic [NUM_LINES - 2 : 0] updatedTree
@@ -182,7 +170,7 @@ end
 endmodule
 
 //Computes the least recently used (LRU) index.
-module getPLRUIndex #(parameter NUM_LINES)(
+module getPLRUIndex (
     input logic [NUM_LINES - 2 : 0] tree,
     output logic [$clog2(NUM_LINES) - 1 : 0] index
 );
@@ -197,12 +185,12 @@ endmodule
 
 
 // Module Instantiations
-getPLRUIndex #(.NUM_LINES(NUM_LINES)) plru_index_inst (
+getPLRUIndex plru_index_inst (
     .tree(plruTree),
     .index(plruIndex)
 );
 
-updatePLruTree #(.NUM_LINES(NUM_LINES)) update_plru_inst (
+updatePLruTree update_plru_inst (
     .currentTree(plruTree),
     .line(lineForPLRU), 
     .updatedTree(updatedTree)

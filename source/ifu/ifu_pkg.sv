@@ -13,9 +13,9 @@ parameter logic VALID = 1'b1;  // Indicates validity
 parameter NUM_TAGS = 16;      // Number of tags
 parameter NUM_LINES = 16;     // Number of lines: should be equal to number of tags
 parameter TAG_WIDTH = 27;     // Width of each tag: evacuation_bit + valid_bit + tag_bits = 1 + 1 + 28
-parameter LINE_WIDTH = 128;    // Width of each cache line
+parameter LINE_WIDTH = 128;   // Width of each cache line
 parameter OFFSET_WIDTH = 4;   // Width of each offset
-parameter ADDR_WIDTH = 32;
+parameter ADDR_WIDTH = 32;    // Width of address
 
 
  typedef struct packed {

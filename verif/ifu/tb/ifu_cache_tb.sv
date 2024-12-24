@@ -27,14 +27,7 @@ logic mem_reqTagValidOut;
 logic dataInsertion;
 
 // Instantiate the ifu_cache module
-ifu_cache #(
-    .NUM_TAGS(NUM_TAGS),
-    .NUM_LINES(NUM_LINES),
-    .TAG_WIDTH(TAG_WIDTH),
-    .LINE_WIDTH(LINE_WIDTH),
-    .ADDR_WIDTH(ADDR_WIDTH),
-    .OFFSET_WIDTH(OFFSET_WIDTH)
-) uut (
+ifu_cache uut (
     .Clock(Clock),
     .Rst(Rst),
     .cpu_reqAddrIn(cpu_reqAddrIn),
