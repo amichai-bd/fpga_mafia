@@ -1,124 +1,211 @@
-`timescale 1ns/1ps
 
-module PLRU_tb;
+`include "macros.vh"
 
-    // Parameters
-    parameter NUM_TAGS = 16;        // Number of tags (cache lines)
-    parameter NUM_LINES = 16;       // Number of lines
-    parameter TAG_WIDTH = 30;       // Width of each tag
-    parameter LINE_WIDTH = 128;     // Width of each cache line
-    parameter OFFSET_WIDTH = 4;     // Offset bits in PC
-    parameter ADDR_WIDTH = 32;      // Address width
+module ifu_cache
+import ifu_pkg::*;
 
-    // Inputs
-    logic Clock;
-    logic Rst;
-    logic [ADDR_WIDTH-1:0] cpu_reqAddrIn;
-    logic [LINE_WIDTH-1:0] mem_rspInsLineIn;
-    logic [TAG_WIDTH-1:0] mem_rspTagIn;
-    logic mem_rspInsLineValidIn;
+#( 
+    parameter NUM_TAGS,      // Number of tags
+    parameter NUM_LINES,     // Number of lines: should be equal to number of tags
+    parameter TAG_WIDTH,     // Width of each tag
+    parameter LINE_WIDTH,    // Width of each cache line
+    parameter ADDR_WIDTH,    // Width of each address
+    parameter OFFSET_WIDTH   // Width of offset bits in address
+)
+(
+// Chip Signals
+input logic Clock,
+input logic Rst,
 
-    // Outputs
-    logic [ADDR_WIDTH-1:0] cpu_rspAddrOut;
-    logic [LINE_WIDTH-1:0] cpu_rspInsLineOut;
-    logic cpu_rspInsLineValidOut;
-    logic [TAG_WIDTH-1:0] mem_reqTagOut;
-    logic mem_reqTagValidOut;
+// CPU Interface
+input logic [ADDR_WIDTH-1:0] cpu_reqAddrIn, // requested addr by cpu
+output logic [ADDR_WIDTH-1:0] cpu_rspAddrOut, // address of the line in the response to cpu
+output logic [LINE_WIDTH-1:0] cpu_rspInsLineOut, // the line in the response to cpu
+output logic cpu_rspInsLineValidOut, // valid, meaning the cpu can read the line
 
-    // Instantiate the DUT (Device Under Test)
-    ifu_cache #(
-        .NUM_TAGS(NUM_TAGS),
-        .NUM_LINES(NUM_LINES),
-        .TAG_WIDTH(TAG_WIDTH),
-        .LINE_WIDTH(LINE_WIDTH),
-        .ADDR_WIDTH(ADDR_WIDTH),
-        .OFFSET_WIDTH(OFFSET_WIDTH)
-    ) dut (
-        .Clock(Clock),
-        .Rst(Rst),
-        .cpu_reqAddrIn(cpu_reqAddrIn),
-        .cpu_rspAddrOut(cpu_rspAddrOut),
-        .cpu_rspInsLineOut(cpu_rspInsLineOut),
-        .cpu_rspInsLineValidOut(cpu_rspInsLineValidOut),
-        .mem_rspTagIn(mem_rspTagIn),
-        .mem_rspInsLineIn(mem_rspInsLineIn),
-        .mem_rspInsLineValidIn(mem_rspInsLineValidIn),
-        .mem_reqTagOut(mem_reqTagOut),
-        .mem_reqTagValidOut(mem_reqTagValidOut)
-    );
+// Memory Interface
+input logic [TAG_WIDTH-1:0] mem_rspTagIn, // tag of the line provide by response of the memory
+input logic [LINE_WIDTH-1:0] mem_rspInsLineIn, // the line provided in the response of the memory
+input logic mem_rspInsLineValidIn, // the line is ready in the response and can be read by the cache
+output logic [TAG_WIDTH-1:0] mem_reqTagOut, // tag requested by the cache from the memory
+output logic mem_reqTagValidOut, // there is a request for the tag to be brought from the memory
 
-    // Clock generation
-    always #5 Clock = ~Clock; // 10 ns clock period
+// Prefetcher Interface
+// to be added
+//
+output logic dataInsertion
 
-    // Testbench Variables
-    int test_counter = 0;
+);
 
-    // Test Procedure
-    initial begin
-        // Initialize signals
-        Clock = 0;
-        Rst = 0;
-        cpu_reqAddrIn = 0;
-        mem_rspTagIn = 0;
-        mem_rspInsLineIn = 128'h0;
-        mem_rspInsLineValidIn = 0;
 
-        // 1. Reset Behavior
-        $display("Test %0d: Reset Behavior", ++test_counter);
-        Rst = 1;
-        #20; // Hold reset for 20 ns
-        Rst = 0;
-        #10;
 
-        // Verify reset behavior
-        assert(!cpu_rspInsLineValidOut) else $fatal("Reset failed: CPU response valid should be 0.");
-        assert(!mem_reqTagValidOut) else $fatal("Reset failed: Memory request valid should be 0.");
+///////////////////
+// Logic Defines //
+///////////////////
+// tag array
+tag_arr_t tagArray [NUM_TAGS];
+logic [ADDR_WIDTH - 1  : OFFSET_WIDTH-1 ] cpu_reqTagIn;
 
-        // 2. Basic Cache Miss
-        $display("Test %0d: Basic Cache Miss", ++test_counter);
-        cpu_reqAddrIn = 32'h1000;  // Set requested address
-        mem_rspInsLineIn = 128'hDEADBEEFDEADBEEFDEADBEEFDEADBEEF; // Simulate memory line data
-        mem_rspTagIn = 30'h1000;  // Simulate tag from memory
-        mem_rspInsLineValidIn = 1;
-        #10; // Wait for one clock cycle
-        mem_rspInsLineValidIn = 0;
+// data array
+data_arr_t dataArray [NUM_LINES];
+// logic dataInsertion;
 
-        assert(mem_reqTagValidOut) else $fatal("Cache miss handling failed: Memory request not valid.");
-        assert(cpu_rspInsLineValidOut) else $fatal("Cache miss handling failed: CPU response valid not set.");
-        assert(cpu_rspInsLineOut == 128'hDEADBEEFDEADBEEFDEADBEEFDEADBEEF) else $fatal("Cache miss handling failed: Incorrect data inserted.");
+// hit status
+logic [$clog2(NUM_TAGS)-1:0] hitPosition; // synthesizable calculated in compilation time 
+logic [NUM_TAGS-1:0] hitArray;
+logic hitStatus;
 
-        // 3. Basic Cache Hit
-        $display("Test %0d: Basic Cache Hit", ++test_counter);
-        cpu_reqAddrIn = 32'h1000;  // Access the same address
-        #10;
+// plru
+logic [$clog2(NUM_LINES) - 1 : 0] lineForPLRU;
+logic [$clog2(NUM_LINES)-1 : 0] freeLine;
+logic freeLineValid;
+logic [NUM_LINES - 2 : 0 ] plruTree;
+logic [NUM_LINES - 2 : 0] updatedTree; // Holds the updated PLRU tree
+logic [$clog2(NUM_LINES) - 1 : 0] plruIndex; // Holds the LRU index
 
-        assert(cpu_rspInsLineValidOut) else $fatal("Cache hit failed: CPU response valid not set.");
-        assert(cpu_rspInsLineOut == 128'hDEADBEEFDEADBEEFDEADBEEFDEADBEEF) else $fatal("Cache hit failed: Incorrect data retrieved.");
 
-        // 4. PLRU Replacement
-        $display("Test %0d: PLRU Replacement", ++test_counter);
-        for (int i = 0; i < NUM_LINES; i++) begin
-            cpu_reqAddrIn = i * 4;  // Unique addresses
-            mem_rspInsLineIn = 128'hA5A5A5A5 + i; // Unique data
-            mem_rspTagIn = i;  // Unique tags
-            mem_rspInsLineValidIn = 1;
-            #10;
-            mem_rspInsLineValidIn = 0;
+
+
+/////////////
+// Assigns //
+/////////////
+assign cpu_reqTagIn = cpu_reqAddrIn[ADDR_WIDTH-1:OFFSET_WIDTH-1];
+assign hitStatus = |hitArray;
+assign mem_reqTagValidOut = !hitStatus;
+assign dataInsertion = (mem_reqTagValidOut == VALID) && (mem_rspInsLineValidIn == VALID) && (mem_reqTagOut == mem_rspTagIn);
+
+
+
+///////////////////////////
+// Always ff Statement //
+///////////////////////////
+
+always_ff @(posedge Clock or posedge Rst) begin
+
+/////////////////
+// Cache Reset //
+/////////////////
+
+    if (Rst) begin
+        for (int i = 0 ; i < NUM_TAGS ; i++) begin
+            tagArray[i] <= 0;
+            dataArray[i] <= 0; 
+            hitArray[i] <= 0;
         end
+        plruTree <= 0;         // Reset PLRU tree
+    end 
+end
 
-        // Insert one more line to trigger replacement
-        cpu_reqAddrIn = 32'hFFFF;
-        mem_rspInsLineIn = 128'h123456789ABCDEF;
-        mem_rspTagIn = 30'hFFFF;
-        mem_rspInsLineValidIn = 1;
-        #10;
-        mem_rspInsLineValidIn = 0;
 
-        assert(cpu_rspInsLineValidOut) else $fatal("PLRU replacement failed: CPU response valid not set.");
-        assert(cpu_rspInsLineOut == 128'h123456789ABCDEF) else $fatal("PLRU replacement failed: Incorrect data after replacement.");
 
-        $display("All tests passed!");
-        $stop;
+
+
+///////////////////////////
+// Always Comb Statement //
+///////////////////////////
+
+
+always_comb begin 
+////////////////
+// Hit Status //
+////////////////
+    for (int i = 0 ; i < NUM_TAGS; i++) begin
+        if (cpu_reqTagIn == tagArray[i].tag && tagArray[i].valid == VALID) begin
+            hitArray[i] = 1;
+            hitPosition = i;
+            cpu_rspAddrOut = cpu_reqAddrIn;
+        end else begin
+            hitArray[i] = 0;
+        end
     end
+
+//////////////////
+// Cache Action //
+//////////////////
+    if(hitStatus == HIT) begin // hit handling 
+        cpu_rspInsLineOut = dataArray[hitPosition];
+        cpu_rspInsLineValidOut = VALID; // we have the line in cache
+        lineForPLRU = hitPosition; // Use hitPosition for a cache hit
+        plruTree = updatedTree; //updates the plru tree when there is a hit
+
+    end else begin // miss handling
+        cpu_rspInsLineValidOut = !VALID; // we do not have the line in cache
+        mem_reqTagOut = cpu_reqTagIn; 
+        lineForPLRU = freeLine;    // Use freeLine for a cache miss
+    end
+
+////////////////////
+// Line Insertion //
+////////////////////
+    if (dataInsertion) begin
+
+        freeLineValid = 0;
+        //checks if there any empty cache lines before using the PLRU 
+        for (int i = 0 ; i < NUM_TAGS ; i++)begin
+            if (!tagArray[i].valid)begin
+                freeLine = i;
+                freeLineValid = 1;
+                break;
+            end
+        end
+        //in case all the lines in the cache are full
+        if (freeLineValid == 0)begin
+            freeLine = plruIndex;
+        end
+        dataArray[freeLine] = mem_rspInsLineIn;
+        tagArray[freeLine].valid = VALID;
+        tagArray[freeLine].tag = mem_rspTagIn;
+
+        plruTree = updatedTree;    
+    end
+end // always_comb end
+
+///////////////
+// Utilities //
+///////////////
+
+//Updates the PLRU tree after a hit or replacement.
+module updatePLruTree #(parameter NUM_LINES = 16)(
+    input logic [NUM_LINES - 2 : 0] currentTree,
+    input logic [$clog2(NUM_LINES) - 1 : 0] line,
+    output logic [NUM_LINES - 2 : 0] updatedTree
+);
+logic [$clog2(NUM_LINES) - 1 : 0] index;
+always_comb begin
+    index = 0;
+    updatedTree = currentTree;
+    for (int level = $clog2(NUM_LINES) - 1 ; level >= 0; level--) begin
+        updatedTree[index] = (line >> level) & 1;
+        index = (index << 1) | ((line >> level) & 1);
+    end
+end
+endmodule
+
+//Computes the least recently used (LRU) index.
+module getPLRUIndex #(parameter NUM_LINES)(
+    input logic [NUM_LINES - 2 : 0] tree,
+    output logic [$clog2(NUM_LINES) - 1 : 0] index
+);
+always_comb begin 
+    index = 0;
+    while(index < NUM_LINES - 1) begin
+        // Updates the index to search in the next layer in the tree, tree[index] chooses the left or right node
+        index = (index << 1 ) | tree[index];
+    end
+end
+endmodule
+
+
+// Module Instantiations
+getPLRUIndex #(.NUM_LINES(NUM_LINES)) plru_index_inst (
+    .tree(plruTree),
+    .index(plruIndex)
+);
+
+updatePLruTree #(.NUM_LINES(NUM_LINES)) update_plru_inst (
+    .currentTree(plruTree),
+    .line(lineForPLRU), 
+    .updatedTree(updatedTree)
+);
 
 endmodule
