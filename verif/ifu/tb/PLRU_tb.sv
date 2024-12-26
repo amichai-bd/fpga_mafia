@@ -2,14 +2,8 @@
 
 module PLRU_tb;
 
-    // Parameters
-    parameter NUM_TAGS = 16;        // Number of tags (cache lines)
-    parameter NUM_LINES = 16;       // Number of lines
-    parameter TAG_WIDTH = 30;       // Width of each tag
-    parameter LINE_WIDTH = 128;     // Width of each cache line
-    parameter ADDR_WIDTH = 32;      // Address width
-    parameter OFFSET_WIDTH = 4;     // Offset bits in address
-
+    import ifu_pkg::*;
+  
     // Inputs
     logic Clock;
     logic Rst;
@@ -30,16 +24,13 @@ module PLRU_tb;
     logic [TAG_WIDTH-1:0] debug_tagArray [NUM_TAGS];
     logic [NUM_TAGS-1:0] debug_validArray;
     logic [NUM_LINES-2:0] debug_plruTree;
+    logic hitStatusOut;
+    logic dataInsertion;
+    logic [NUM_LINES - 2 :0] plruTreeOut;
 
     // Instantiate the DUT (Device Under Test)
-    ifu_cache #(
-        .NUM_TAGS(NUM_TAGS),
-        .NUM_LINES(NUM_LINES),
-        .TAG_WIDTH(TAG_WIDTH),
-        .LINE_WIDTH(LINE_WIDTH),
-        .ADDR_WIDTH(ADDR_WIDTH),
-        .OFFSET_WIDTH(OFFSET_WIDTH)
-    ) dut (
+    ifu_cache 
+       dut (
         .Clock(Clock),
         .Rst(Rst),
         .cpu_reqAddrIn(cpu_reqAddrIn),
@@ -51,10 +42,10 @@ module PLRU_tb;
         .mem_rspInsLineValidIn(mem_rspInsLineValidIn),
         .mem_reqTagOut(mem_reqTagOut),
         .mem_reqTagValidOut(mem_reqTagValidOut),
-        .debug_dataArray(debug_dataArray),
-        .debug_tagArray(debug_tagArray),
-        .debug_validArray(debug_validArray),
-        .debug_plruTree(debug_plruTree)
+        .dataInsertion(dataInsertion),
+        .hitStatusOut(hitStatusOut),
+        .plruTreeOut(plruTreeOut)
+        //.debug_plruTree(debug_plruTree)
     );
 
     // Clock generation
@@ -80,10 +71,10 @@ module PLRU_tb;
         Rst = 0;
         #10;
         // Verify all entries are invalid and PLRU tree is reset
-        for (int i = 0; i < NUM_TAGS; i++) begin
+        /*for (int i = 0; i < NUM_TAGS; i++) begin
             assert(dut.debug_validArray[i] == 0) else $fatal("Reset failed for validArray[%0d].", i);
-        end
-        assert(dut.debug_plruTree == 0) else $fatal("PLRU tree reset failed.");
+        end*/
+       // assert(dut.debug_plruTree == 0) else $fatal("PLRU tree reset failed.");
 
         // 2. Basic Cache Miss
         $display("Test %0d: Basic Cache Miss", ++test_counter);

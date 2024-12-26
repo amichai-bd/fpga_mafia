@@ -163,7 +163,7 @@ module updatePLruTree (
 logic [P_BITS - 1 : 0] index;
 
 always_comb begin
-    index = 0;
+    //index = 0;
     updatedTree = currentTree;
     for (int level = P_BITS - 1 ; level >= 0; level--) begin
         updatedTree[index] = (line >> level) & 1;
@@ -179,12 +179,13 @@ module getPLRUIndex (
 );
 
 always_comb begin 
-    index = 0;
+    //index = 0;
     while(index < NUM_LINES - 1) begin
         // Updates the index to search in the next layer in the tree, tree[index] chooses the left or right node
         index = (index << 1 ) | tree[index];
-        index = index & 4'b1111; // mod 16 to insure the index is always smaller than 16
+        index = index % 15 ; // mod 15 to insure the index is always smaller than 16
     end
+    //index = index & ((1 << P_BITS) - 1);
 end
 
 endmodule
