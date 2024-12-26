@@ -125,11 +125,15 @@ always_ff @(posedge Clock or posedge Rst) begin
     end
 end
 
+endmodule
+
 ///////////////////
 // Internal Modules
 ///////////////////
 
-module updatePLruTree (
+module updatePLruTree
+import ifu_pkg::*;
+ (
     input logic [NUM_LINES - 2:0] currentTree,
     input logic [P_BITS - 1:0] line,
     output logic [NUM_LINES - 2:0] updatedTree
@@ -147,7 +151,9 @@ module updatePLruTree (
     end
 endmodule
 
-module getPLRUIndex (
+module getPLRUIndex 
+import ifu_pkg::*;
+(
     input logic [NUM_LINES - 2:0] tree,
     output logic [P_BITS - 1:0] index
 );
@@ -159,16 +165,6 @@ module getPLRUIndex (
     end
 endmodule
 
-// Instantiations
-updatePLruTree update_plru_inst (
-    .currentTree(plruTree),
-    .line(lineForPLRU),
-    .updatedTree(updatedTree)
-);
 
-getPLRUIndex plru_index_inst (
-    .tree(plruTree),
-    .index(plruIndex)
-);
 
-endmodule
+
