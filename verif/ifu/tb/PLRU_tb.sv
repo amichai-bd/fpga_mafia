@@ -20,17 +20,13 @@ module PLRU_tb;
     logic mem_reqTagValidOut;
 
     // Debug Outputs
-    logic [LINE_WIDTH-1:0] debug_dataArray [NUM_LINES];
-    logic [TAG_WIDTH-1:0] debug_tagArray [NUM_TAGS];
-    logic [NUM_TAGS-1:0] debug_validArray;
-    logic [NUM_LINES-2:0] debug_plruTree;
     logic hitStatusOut;
     logic dataInsertion;
-    logic [NUM_LINES - 2 :0] plruTreeOut;
+    logic [NUM_LINES - 2:0] plruTreeOut;
 
     // Instantiate the DUT (Device Under Test)
     ifu_cache 
-       dut (
+     dut (
         .Clock(Clock),
         .Rst(Rst),
         .cpu_reqAddrIn(cpu_reqAddrIn),
@@ -45,7 +41,6 @@ module PLRU_tb;
         .dataInsertion(dataInsertion),
         .hitStatusOut(hitStatusOut),
         .plruTreeOut(plruTreeOut)
-        //.debug_plruTree(debug_plruTree)
     );
 
     // Clock generation
@@ -70,11 +65,8 @@ module PLRU_tb;
         #20; // Hold reset for 20 ns
         Rst = 0;
         #10;
-        // Verify all entries are invalid and PLRU tree is reset
-        /*for (int i = 0; i < NUM_TAGS; i++) begin
-            assert(dut.debug_validArray[i] == 0) else $fatal("Reset failed for validArray[%0d].", i);
-        end*/
-       // assert(dut.debug_plruTree == 0) else $fatal("PLRU tree reset failed.");
+        // Verify PLRU tree is reset
+        assert(dut.plruTreeOut == 0) else $fatal("PLRU tree reset failed.");
 
         // 2. Basic Cache Miss
         $display("Test %0d: Basic Cache Miss", ++test_counter);
@@ -116,6 +108,7 @@ module PLRU_tb;
         mem_rspTagIn = cpu_reqAddrIn[ADDR_WIDTH-1:OFFSET_WIDTH];
         #10;
         mem_rspInsLineValidIn = 0;
+
         // Check replacement
         assert(dut.cpu_rspInsLineValidOut == 0) else $fatal("PLRU replacement failed.");
         
