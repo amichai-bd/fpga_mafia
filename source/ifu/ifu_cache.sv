@@ -23,7 +23,11 @@ output logic mem_reqTagValidOut, // there is a request for the tag to be brought
 // Debug
 output logic dataInsertion,
 output logic hitStatusOut,
-output logic [NUM_LINES - 2 :0] plruTreeOut
+output logic [NUM_LINES - 2:0] plruTreeOut,
+output logic [LINE_WIDTH * NUM_LINES - 1:0] debug_dataArray, // Flattened dataArray
+output logic [(TAG_WIDTH + 1) * NUM_TAGS - 1:0] debug_tagArray, // Flattened tagArray with valid bit
+output logic [NUM_LINES - 2:0] debug_plruTree, // Current PLRU tree
+output logic [P_BITS - 1:0] debug_plruIndex // PLRU index selected for eviction
 );
 
 ///////////////////
@@ -39,22 +43,35 @@ logic [NUM_TAGS - 1:0] hitArray;
 logic hitStatus;
 
 // PLRU
-logic [P_BITS - 1 : 0] lineForPLRU;
-logic [P_BITS - 1 : 0] freeLine;
+logic [P_BITS - 1:0] lineForPLRU;
+logic [P_BITS - 1:0] freeLine;
 logic freeLineValid;
-logic [NUM_LINES - 2 : 0] plruTree;
-logic [NUM_LINES - 2 : 0] updatedTree;
-logic [P_BITS - 1 : 0] plruIndex;
+logic [NUM_LINES - 2:0] plruTree;
+logic [NUM_LINES - 2:0] updatedTree;
+logic [P_BITS - 1:0] plruIndex;
 
-/////////////////
-// Assignments///
-////////////////
+/////////////
+// Assigns //
+/////////////
 assign cpu_reqTagIn = cpu_reqAddrIn[ADDR_WIDTH - 1:OFFSET_WIDTH - 1];
 assign hitStatus = |hitArray;
 assign mem_reqTagValidOut = !hitStatus;
 assign dataInsertion = (mem_reqTagValidOut == VALID) && (mem_rspInsLineValidIn == VALID) && (mem_reqTagOut == mem_rspTagIn);
 assign plruTreeOut = plruTree;
 assign hitStatusOut = hitStatus;
+assign debug_plruTree = plruTree;
+assign debug_plruIndex = plruIndex;
+
+// Flattened debug arrays for monitoring
+generate
+    genvar i;
+    for (i = 0; i < NUM_LINES; i++) begin
+        assign debug_dataArray[i * LINE_WIDTH +: LINE_WIDTH] = dataArray[i].line;
+    end
+    for (i = 0; i < NUM_TAGS; i++) begin
+        assign debug_tagArray[i * (TAG_WIDTH + 1) +: TAG_WIDTH + 1] = {tagArray[i].valid, tagArray[i].tag};
+    end
+endgenerate
 
 ///////////////////////////
 // Always Comb Statement //
@@ -133,7 +150,7 @@ endmodule
 
 module updatePLruTree
 import ifu_pkg::*;
- (
+(
     input logic [NUM_LINES - 2:0] currentTree,
     input logic [P_BITS - 1:0] line,
     output logic [NUM_LINES - 2:0] updatedTree
@@ -164,7 +181,3 @@ import ifu_pkg::*;
         end
     end
 endmodule
-
-
-
-
