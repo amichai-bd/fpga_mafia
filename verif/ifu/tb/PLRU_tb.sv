@@ -22,7 +22,7 @@ module PLRU_tb;
     // Debug Outputs
     logic hitStatusOut;
     logic dataInsertion;
-    logic [NUM_LINES - 2:0] plruTreeOut;
+    logic debug_freeLine;
     logic [LINE_WIDTH * NUM_LINES - 1:0] debug_dataArray;
     logic [(TAG_WIDTH + 1) * NUM_TAGS - 1:0] debug_tagArray;
     logic [NUM_LINES - 2:0] debug_plruTree;
@@ -44,7 +44,7 @@ module PLRU_tb;
         .mem_reqTagValidOut(mem_reqTagValidOut),
         .dataInsertion(dataInsertion),
         .hitStatusOut(hitStatusOut),
-        .plruTreeOut(plruTreeOut),
+        .debug_freeline(debug_freeLine),
         .debug_dataArray(debug_dataArray),
         .debug_tagArray(debug_tagArray),
         .debug_plruTree(debug_plruTree),
@@ -94,25 +94,30 @@ initial begin
     #20; // Hold reset for 20 ns
     Rst = 0;
     #10;
-    $display("PLRU tree reset to: %0h", dut.plruTreeOut);
+    $display("PLRU tree reset to: %0h", dut.debug_plruTree);
     display_data_array();
     display_tag_array();
 
     // 2. Basic Cache Miss
     $display("Test %0d: Basic Cache Miss", ++test_counter);
     cpu_reqAddrIn = 32'h1000;  // Set request address
-    mem_rspInsLineIn = 128'hDEADBEEFDEADBEEFDEADBEEFDEADBEEF; // Line data
-    mem_rspTagIn = cpu_reqAddrIn[ADDR_WIDTH-1:OFFSET_WIDTH];
-    mem_rspInsLineValidIn = 1;
-    #10; // Wait for one clock cycle
-    mem_rspInsLineValidIn = 0;
-    $display("Cache miss handled. Data insertion: %0b", dut.dataInsertion);
+    
     display_data_array();
     display_tag_array();
 
+    
+    #5
+    // check if memory request is sent
+    $display("Cache miss handled. Data insertion: %0b, hit: %0b, req data: %0h , %0b, rsp data: %0h, %0b", dut.dataInsertion, dut.hitStatusOut, dut.mem_reqTagOut, dut.mem_reqTagValidOut, mem_rspTagIn, mem_rspInsLineValidIn);
     // Simulate response from memory
+    mem_rspInsLineIn = 128'hDEADBEEFDEADBEEFDEADBEEFDEADBEEF; // Line data
+    mem_rspTagIn = cpu_reqAddrIn[ADDR_WIDTH-1:OFFSET_WIDTH];
     mem_rspInsLineValidIn = 1;
-    #10;
+    // check if data insertion mode is on
+    #5
+    $display("Cache miss handled. Data insertion: %0b, hit: %0b, req data: %0h , %0b, rsp data: %0h, %0b", dut.dataInsertion, dut.hitStatusOut, dut.mem_reqTagOut, dut.mem_reqTagValidOut, mem_rspTagIn, mem_rspInsLineValidIn);
+    
+    #10
     mem_rspInsLineValidIn = 0;
     $display("Inserted data: %0h", dut.cpu_rspInsLineOut);
     display_data_array();
@@ -128,11 +133,15 @@ initial begin
     // 4. PLRU Replacement
     $display("Test %0d: PLRU Replacement", ++test_counter);
     for (i = 0; i < NUM_LINES; i++) begin
+        cpu_reqAddrIn = i * 32;
+        #5 // check if memory request is sent
+        $display("Cache miss handled. Data insertion: %0b, hit: %0b, req data: %0h , %0b, rsp data: %0h, %0b", dut.dataInsertion, dut.hitStatusOut, dut.mem_reqTagOut, dut.mem_reqTagValidOut, mem_rspTagIn, mem_rspInsLineValidIn);
+        #5 // simulate mem response
         temp_data = (i + 1) & 8'hFF; // Extract the lower 8 bits
         mem_rspInsLineIn = {16{temp_data}}; // Unique data
-        cpu_reqAddrIn = i * 4;
         mem_rspInsLineValidIn = 1;
         mem_rspTagIn = cpu_reqAddrIn[ADDR_WIDTH-1:OFFSET_WIDTH];
+        $display("Cache miss handled. Data insertion: %0b, hit: %0b, req data: %0h , %0b, rsp data: %0h, %0b", dut.dataInsertion, dut.hitStatusOut, dut.mem_reqTagOut, dut.mem_reqTagValidOut, mem_rspTagIn, mem_rspInsLineValidIn);
         #10;
         mem_rspInsLineValidIn = 0;
         $display("Inserted data for address %0h: %0h", cpu_reqAddrIn, mem_rspInsLineIn);

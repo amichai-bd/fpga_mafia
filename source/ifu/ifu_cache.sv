@@ -23,7 +23,7 @@ output logic mem_reqTagValidOut, // there is a request for the tag to be brought
 // Debug
 output logic dataInsertion,
 output logic hitStatusOut,
-output logic [NUM_LINES - 2:0] plruTreeOut,
+output logic debug_freeline,
 output logic [LINE_WIDTH * NUM_LINES - 1:0] debug_dataArray, // Flattened dataArray
 output logic [(TAG_WIDTH + 1) * NUM_TAGS - 1:0] debug_tagArray, // Flattened tagArray with valid bit
 output logic [NUM_LINES - 2:0] debug_plruTree, // Current PLRU tree
@@ -34,7 +34,7 @@ output logic [P_BITS - 1:0] debug_plruIndex // PLRU index selected for eviction
 // Logic Defines //
 ///////////////////
 tag_arr_t tagArray [NUM_TAGS];
-logic [ADDR_WIDTH - 1 : OFFSET_WIDTH - 1] cpu_reqTagIn;
+logic [ADDR_WIDTH - 1 : OFFSET_WIDTH] cpu_reqTagIn;
 data_arr_t dataArray [NUM_LINES];
 
 // Hit status
@@ -53,11 +53,11 @@ logic [P_BITS - 1:0] plruIndex;
 /////////////
 // Assigns //
 /////////////
-assign cpu_reqTagIn = cpu_reqAddrIn[ADDR_WIDTH - 1:OFFSET_WIDTH - 1];
+assign cpu_reqTagIn = cpu_reqAddrIn[ADDR_WIDTH - 1:OFFSET_WIDTH];
 assign hitStatus = |hitArray;
 assign mem_reqTagValidOut = !hitStatus;
 assign dataInsertion = (mem_reqTagValidOut == VALID) && (mem_rspInsLineValidIn == VALID) && (mem_reqTagOut == mem_rspTagIn);
-assign plruTreeOut = plruTree;
+assign debug_freeline = freeLine;
 assign hitStatusOut = hitStatus;
 assign debug_plruTree = plruTree;
 assign debug_plruIndex = plruIndex;
@@ -137,7 +137,7 @@ always_ff @(posedge Clock or posedge Rst) begin
     if (dataInsertion) begin
         dataArray[freeLine] <= mem_rspInsLineIn;
         tagArray[freeLine].valid <= VALID;
-        tagArray[freeLine].tag <= mem_rspTagIn;
+        tagArray[freeLine].tag[TAG_WIDTH-1:0] <= mem_rspTagIn[TAG_WIDTH-1:0];
         plruTree <= updatedTree;
     end
 end
