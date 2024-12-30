@@ -29,7 +29,7 @@ parameter NUM_OF_QUAD_MEM = 0;   // number of is quad port ram
 parameter NUM_OF_PC       = 1;   // number of program counters
 parameter NUM_OF_INST_MEM = 1;   // number of instruction memory
 
-parameter NUM_OF_CONSTS   = 8;  // number of constants is the cpuc
+parameter NUM_OF_CONSTS   = 4;  // number of constants is the cpuc
 
 //number of components that can be connected to amy register
 parameter NUM_OF_COMPONENTS  = NUM_OF_REGS + NUM_OF_MUL + NUM_OF_ADDERS + NUM_OF_CMP + NUM_OF_MUX + NUM_OF_EQUAL + 
@@ -45,3 +45,5 @@ typedef struct packed {
 } t_reg_outputs;
 
 endpackage
+
+
