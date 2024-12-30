@@ -74,8 +74,7 @@ module PLRU_tb;
         end
     endtask
 
-    // Test Procedure
-    // Test Procedure
+    
 initial begin
     // Initialize signals
     logic [7:0] temp_data; // Temporary variable for slicing
@@ -168,10 +167,42 @@ initial begin
     cpu_reqAddrIn = 32'hFFFF; // Accessing evicted line
     #10;
     $display("Cache hit status: %0b, Retrieved data: %0h", dut.cpu_rspInsLineValidOut, dut.cpu_rspInsLineOut);
+    display_data_array();
+    display_tag_array();
+
+
+    // Insert a second line to trigger replacement again
+    $display("Test %0d: PLRU Replacement (2nd trigger)", ++test_counter);
+    cpu_reqAddrIn = 32'hFFFE;
+    temp_data = 8'hFE; // Unique data for this case
+    mem_rspInsLineIn = {16{temp_data}};
+    mem_rspInsLineValidIn = 1;
+    mem_rspTagIn = cpu_reqAddrIn[ADDR_WIDTH-1:OFFSET_WIDTH];
+    #10;
+    mem_rspInsLineValidIn = 0;
+
+    $display("PLRU replacement executed. Evicted index: %0h", dut.debug_plruIndex);
+    $display("PLRU tree after replacement: %0h", dut.debug_plruTree);
+    display_data_array();
+    display_tag_array();
+
+    // Insert a third line to trigger replacement again
+    $display("Test %0d: PLRU Replacement (3rd trigger)", ++test_counter);
+    cpu_reqAddrIn = 32'hFFFD;
+    temp_data = 8'hFD; // Unique data for this case
+    mem_rspInsLineIn = {16{temp_data}};
+    mem_rspInsLineValidIn = 1;
+    mem_rspTagIn = cpu_reqAddrIn[ADDR_WIDTH-1:OFFSET_WIDTH];
+    #10;
+    mem_rspInsLineValidIn = 0;
+
+    $display("PLRU replacement executed. Evicted index: %0h", dut.debug_plruIndex);
+    $display("PLRU tree after replacement: %0h", dut.debug_plruTree);
     $display("Final Data Array:");
     display_data_array();
     $display("Final Tag Array:");
     display_tag_array();
+
 
     $display("All tests completed!");
     $stop;

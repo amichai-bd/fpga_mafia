@@ -3,31 +3,31 @@
 module ifu_cache
 import ifu_pkg::*;
 (
-// Chip Signals
-input logic Clock,
-input logic Rst,
+    // Chip Signals
+    input logic Clock,
+    input logic Rst,
 
-// CPU Interface
-input logic [ADDR_WIDTH-1:0] cpu_reqAddrIn, // requested addr by cpu
-output logic [ADDR_WIDTH-1:0] cpu_rspAddrOut, // address of the line in the response to cpu
-output logic [LINE_WIDTH-1:0] cpu_rspInsLineOut, // the line in the response to cpu
-output logic cpu_rspInsLineValidOut, // valid, meaning the cpu can read the line
+    // CPU Interface
+    input logic [ADDR_WIDTH-1:0] cpu_reqAddrIn, // requested addr by cpu
+    output logic [ADDR_WIDTH-1:0] cpu_rspAddrOut, // address of the line in the response to cpu
+    output logic [LINE_WIDTH-1:0] cpu_rspInsLineOut, // the line in the response to cpu
+    output logic cpu_rspInsLineValidOut, // valid, meaning the cpu can read the line
 
-// Memory Interface
-input logic [TAG_WIDTH-1:0] mem_rspTagIn, // tag of the line provide by response of the memory
-input logic [LINE_WIDTH-1:0] mem_rspInsLineIn, // the line provided in the response of the memory
-input logic mem_rspInsLineValidIn, // the line is ready in the response and can be read by the cache
-output logic [TAG_WIDTH-1:0] mem_reqTagOut, // tag requested by the cache from the memory
-output logic mem_reqTagValidOut, // there is a request for the tag to be brought from the memory
+    // Memory Interface
+    input logic [TAG_WIDTH-1:0] mem_rspTagIn, // tag of the line provide by response of the memory
+    input logic [LINE_WIDTH-1:0] mem_rspInsLineIn, // the line provided in the response of the memory
+    input logic mem_rspInsLineValidIn, // the line is ready in the response and can be read by the cache
+    output logic [TAG_WIDTH-1:0] mem_reqTagOut, // tag requested by the cache from the memory
+    output logic mem_reqTagValidOut, // there is a request for the tag to be brought from the memory
 
-// Debug
-output logic dataInsertion,
-output logic hitStatusOut,
-output logic debug_freeline,
-output logic [LINE_WIDTH * NUM_LINES - 1:0] debug_dataArray, // Flattened dataArray
-output logic [(TAG_WIDTH + 1) * NUM_TAGS - 1:0] debug_tagArray, // Flattened tagArray with valid bit
-output logic [NUM_LINES - 2:0] debug_plruTree, // Current PLRU tree
-output logic [P_BITS - 1:0] debug_plruIndex // PLRU index selected for eviction
+    // Debug
+    output logic dataInsertion,
+    output logic hitStatusOut,
+    output logic debug_freeline,
+    output logic [LINE_WIDTH * NUM_LINES - 1:0] debug_dataArray, // Flattened dataArray
+    output logic [(TAG_WIDTH + 1) * NUM_TAGS - 1:0] debug_tagArray, // Flattened tagArray with valid bit
+    output logic [NUM_LINES - 2:0] debug_plruTree, // Current PLRU tree
+    output logic [P_BITS - 1:0] debug_plruIndex // PLRU index selected for eviction
 );
 
 ///////////////////
@@ -47,7 +47,8 @@ logic [P_BITS - 1:0] lineForPLRU;
 logic [P_BITS - 1:0] freeLine;
 logic freeLineValid;
 logic [NUM_LINES - 2:0] plruTree;
-logic [NUM_LINES - 2:0] updatedTree;
+logic [NUM_LINES - 2:0] currentTree;
+logic [NUM_LINES - 2:0] tempUpdatedTree;
 logic [P_BITS - 1:0] plruIndex;
 
 /////////////
@@ -76,8 +77,18 @@ endgenerate
 ///////////////////////////
 // Always Comb Statement //
 ///////////////////////////
-
 always_comb begin
+    // Local Variables
+    automatic int loopCount;           // Safeguard for infinite loop
+    automatic logic [P_BITS - 1:0] index;
+
+    // Initialize Local Variables
+    index = 0;
+    loopCount = 0;
+    plruIndex = 0;
+    freeLine = 0;
+    freeLineValid = 0;
+
     // Hit Status
     for (int i = 0; i < NUM_TAGS; i++) begin
         if (cpu_reqTagIn == tagArray[i].tag && tagArray[i].valid == VALID) begin
@@ -103,7 +114,6 @@ always_comb begin
     // Line Insertion
     if (dataInsertion) begin
         freeLineValid = 0;
-        freeLine = 0;
         for (int i = 0; i < NUM_TAGS; i++) begin
             if (!tagArray[i].valid) begin
                 freeLine = i;
@@ -115,12 +125,36 @@ always_comb begin
             freeLine = plruIndex;
         end
     end
+
+    // PLRU Tree Update
+    tempUpdatedTree = currentTree;
+    for (int level = P_BITS - 1; level >= 0; level--) begin
+        tempUpdatedTree[index] = !(lineForPLRU[level]);
+        index = (index << 1) | lineForPLRU[level];
+    end
+
+    // Debug the updated tree
+    $display("Updated PLRU Tree: %b", tempUpdatedTree);
+
+    // PLRU Index Calculation
+    plruIndex = 0;
+    while (plruIndex < NUM_LINES - 1 && loopCount < NUM_LINES) begin
+        if (plruTree[plruIndex] === 1'bx) begin
+            $display("Error: Invalid value in PLRU Tree at index %0d", plruIndex);
+            plruIndex = 0;
+            break;
+        end
+        plruIndex = (plruIndex << 1) | plruTree[plruIndex];
+        loopCount++;
+    end
+    if (loopCount == NUM_LINES) begin
+        $display("Error: Infinite loop detected in PLRU index calculation!");
+    end
 end
 
 ///////////////////////////
 // Always_ff Statement ////
 ///////////////////////////
-
 always_ff @(posedge Clock or posedge Rst) begin
     if (Rst) begin
         for (int i = 0; i < NUM_TAGS; i++) begin
@@ -128,56 +162,21 @@ always_ff @(posedge Clock or posedge Rst) begin
             dataArray[i] <= 0;
         end
         plruTree <= 0;
-    end
+        currentTree <= 0;
+    end else begin
+        if (hitStatus == HIT) begin
+            plruTree <= tempUpdatedTree; 
+            currentTree <= tempUpdatedTree; // Sync currentTree
+        end
 
-    if (hitStatus == HIT) begin
-        plruTree <= updatedTree;
-    end
-
-    if (dataInsertion) begin
-        dataArray[freeLine] <= mem_rspInsLineIn;
-        tagArray[freeLine].valid <= VALID;
-        tagArray[freeLine].tag[TAG_WIDTH-1:0] <= mem_rspTagIn[TAG_WIDTH-1:0];
-        plruTree <= updatedTree;
+        if (dataInsertion) begin
+            dataArray[freeLine] <= mem_rspInsLineIn;
+            tagArray[freeLine].valid <= VALID;
+            tagArray[freeLine].tag[TAG_WIDTH-1:0] <= mem_rspTagIn[TAG_WIDTH-1:0];
+            plruTree <= tempUpdatedTree; 
+            currentTree <= tempUpdatedTree; // Sync currentTree
+        end
     end
 end
 
-endmodule
-
-///////////////////
-// Internal Modules
-///////////////////
-
-module updatePLruTree
-import ifu_pkg::*;
-(
-    input logic [NUM_LINES - 2:0] currentTree,
-    input logic [P_BITS - 1:0] line,
-    output logic [NUM_LINES - 2:0] updatedTree
-);
-    logic [P_BITS - 1:0] index;
-    always_comb begin
-        index = 0;
-        updatedTree = currentTree;
-        for (int level = P_BITS - 1; level >= 0; level--) begin
-            if (index < NUM_LINES - 1) begin
-                updatedTree[index] = (line >> level) & 1;
-            end
-            index = (index << 1) | ((line >> level) & 1);
-        end
-    end
-endmodule
-
-module getPLRUIndex 
-import ifu_pkg::*;
-(
-    input logic [NUM_LINES - 2:0] tree,
-    output logic [P_BITS - 1:0] index
-);
-    always_comb begin
-        index = 0;
-        while (index < NUM_LINES - 1) begin
-            index = (index << 1) | tree[index];
-        end
-    end
 endmodule
