@@ -16,6 +16,6 @@
 ../../../source/cpuc/cpuc_single_ram.sv
 ../../../source/cpuc/cpuc_dual_ram.sv
 ../../../source/cpuc/cpuc_quad_ram.sv
-
+../../../source/cpuc/cpuc.sv
 
 
