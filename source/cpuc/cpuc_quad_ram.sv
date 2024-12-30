@@ -10,6 +10,7 @@
 
 module cpuc_quad_ram 
 import cpuc_package::*;
+#(parameter ADDR_WIDTH = 32, DATA_WIDTH = 32)
 (
     input  logic                  clk,
 
