@@ -25,18 +25,19 @@ import cpuc_package::*;
 );
 
 //follow the pattern when adding new components
-logic [0:NUM_OF_REGS+NUM_OF_PC-1][DATA_WIDTH-1:0]  regs_array_output;
-logic [0:NUM_OF_ADDERS-1][DATA_WIDTH-1:0]          adders_array_output;
-logic [0:NUM_OF_CMP-1][DATA_WIDTH-1:0]             greaters_array_output;
-logic [0:NUM_OF_EQUAL-1][DATA_WIDTH-1:0]           compares_array_output;
+logic [NUM_OF_REGS+NUM_OF_PC-1:0][DATA_WIDTH-1:0]  regs_array_output;
+logic [NUM_OF_ADDERS-1:0][DATA_WIDTH-1:0]          adders_array_output;
+logic [NUM_OF_CMP-1:0][DATA_WIDTH-1:0]             greaters_array_output;
+logic [NUM_OF_EQUAL-1:0][DATA_WIDTH-1:0]           compares_array_output;
 
-logic [0:NUM_OF_REGS+NUM_OF_PC-1][DATA_WIDTH-1:0]      regs_array_inputs;
-logic [0:NUM_OF_REGS+NUM_OF_PC-1][1:0][DATA_WIDTH-1:0] adders_array_input;
+logic [NUM_OF_REGS+NUM_OF_PC-1:0][DATA_WIDTH-1:0]      regs_array_inputs;
+logic [NUM_OF_REGS+NUM_OF_PC-1:0][1:0][DATA_WIDTH-1:0] adders_array_input;
 //**************************************
 //  Tri state connections to registers
 //**************************************
-logic [0:NUM_OF_COMPONENTS-1][DATA_WIDTH-1:0] component_outputs ;
-assign component_outputs = {regs_array_output, adders_array_output, greaters_array_output, compares_array_output};
+logic [NUM_OF_COMPONENTS-1:0][DATA_WIDTH-1:0] component_outputs ;
+//assign component_outputs = {regs_array_output, adders_array_output, greaters_array_output, compares_array_output};
+assign component_outputs = {compares_array_output, greaters_array_output, adders_array_output, regs_array_output};
 
 genvar c_tri_state_reg, l_tri_state_reg; 
 generate
