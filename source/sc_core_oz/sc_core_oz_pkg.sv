@@ -16,9 +16,9 @@ typedef enum logic [3:0] {
 
 
 typedef struct packed {
-    logic [4:0] reg_src1;
-    logic [4:0] reg_src2;
-    m_alu_op op
+    logic [31:0] reg_src1;
+    logic [31:0] reg_src2;
+    m_alu_op op;
 } m_alu_ctrl;
 
 

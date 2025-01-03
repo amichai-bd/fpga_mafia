@@ -32,8 +32,8 @@ always_comb begin: alu_logic
         ADD: result = alu_ctrl.reg_src1 + alu_ctrl.reg_src2;                                            //addition 
         SUB: result = alu_ctrl.reg_src1 - alu_ctrl.reg_src2;                                            //subtraction
         SLL: result = alu_ctrl.reg_src1 << alu_ctrl.reg_src2;                                           //logical left shift
-        SLT: result = ($signed(alu_ctrl.reg_src1) < $signed(alu_ctrl.reg_src)) ? 32'd1 : 32'd0;         //set less than (signed)
-        SLTU: result = (alu_ctrl.reg_src1 < alu_ctrl.reg_src) ? 32'd1 : 32'd0;                          // set less than unsigned
+        SLT: result = ($signed(alu_ctrl.reg_src1) < $signed(alu_ctrl.reg_src2)) ? 32'd1 : 32'd0;         //set less than (signed)
+        SLTU: result = (alu_ctrl.reg_src1 < alu_ctrl.reg_src2) ? 32'd1 : 32'd0;                          // set less than unsigned
         XOR: result = alu_ctrl.reg_src1 ^ alu_ctrl.reg_src2;                                            //bitwise xor (exclusive or)
         SRL: result = alu_ctrl.reg_src1 >> alu_ctrl.reg_src2;                                           //logical right shift
         SRA: result = ($signed(alu_ctrl.reg_src1) >>> $signed(alu_ctrl.reg_src2));                      //arithmetic right shift

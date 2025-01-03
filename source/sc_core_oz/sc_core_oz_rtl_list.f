@@ -10,9 +10,9 @@
 // Description :
 //-----------------------------------------------------------------------------
 
-//+incdir+../../../source/common/
-//vcs -full64 +incdir+../../../source/common/ -f sc_core_oz_rtl_list.f
++incdir+../../../source/common/
 //RTL FIles
+
 ../../../source/sc_core_oz/sc_core_oz_pkg.sv
 ../../../source/sc_core_oz/sc_core_oz_alu.sv
-//../../../source/sc_core_oz/sc_core_oz_rf.sv
+../../../source/sc_core_oz/sc_core_oz_rf.sv
