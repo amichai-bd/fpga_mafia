@@ -22,7 +22,6 @@ module PLRU_tb;
     // Debug Outputs
     logic hitStatusOut;
     logic dataInsertion;
-    logic debug_freeLine;
     logic [LINE_WIDTH * NUM_LINES - 1:0] debug_dataArray;
     logic [(TAG_WIDTH + 1) * NUM_TAGS - 1:0] debug_tagArray;
     logic [NUM_LINES - 2:0] debug_plruTree;
@@ -44,7 +43,6 @@ module PLRU_tb;
         .mem_reqTagValidOut(mem_reqTagValidOut),
         .dataInsertion(dataInsertion),
         .hitStatusOut(hitStatusOut),
-        .debug_freeline(debug_freeLine),
         .debug_dataArray(debug_dataArray),
         .debug_tagArray(debug_tagArray),
         .debug_plruTree(debug_plruTree),
@@ -93,13 +91,14 @@ initial begin
     #20; // Hold reset for 20 ns
     Rst = 0;
     #10;
-    $display("PLRU tree reset to: %0h", dut.debug_plruTree);
+    $display("PLRU tree reset to: %0b", dut.debug_plruTree);
     display_data_array();
     display_tag_array();
 
     // 2. Basic Cache Miss
     $display("Test %0d: Basic Cache Miss", ++test_counter);
     cpu_reqAddrIn = 32'h1000;  // Set request address
+    $display("Requesting cpu address: %0h", cpu_reqAddrIn);
     
     display_data_array();
     display_tag_array();
@@ -115,41 +114,53 @@ initial begin
     // check if data insertion mode is on
     #5
     $display("Cache miss handled. Data insertion: %0b, hit: %0b, req data: %0h , %0b, rsp data: %0h, %0b", dut.dataInsertion, dut.hitStatusOut, dut.mem_reqTagOut, dut.mem_reqTagValidOut, mem_rspTagIn, mem_rspInsLineValidIn);
-    
+    $display("PLRU before replacement. Evicted index: %0b", dut.debug_plruIndex);
+    $display("PLRU tree before replacement: %0b", dut.debug_plruTree);
+
     #10
     mem_rspInsLineValidIn = 0;
     $display("Inserted data: %0h", dut.cpu_rspInsLineOut);
     display_data_array();
     display_tag_array();
+    $display("PLRU replacement executed. Evicted index: %0b", dut.debug_plruIndex);
+    $display("PLRU tree after replacement: %0b", dut.debug_plruTree);
 
     // 3. Basic Cache Hit
     $display("Test %0d: Basic Cache Hit", ++test_counter);
     cpu_reqAddrIn = 32'h1000;  // Access the same address
+    $display("Requesting cpu address: %0h", cpu_reqAddrIn);
     #10;
     $display("Cache hit. Valid line: %0b, Data: %0h", dut.cpu_rspInsLineValidOut, dut.cpu_rspInsLineOut);
-    $display("PLRU tree after hit: %0h", dut.debug_plruTree);
+    $display("PLRU tree after hit: %0b", dut.debug_plruTree);
 
     // 4. PLRU Replacement
     $display("Test %0d: PLRU Replacement", ++test_counter);
-    for (i = 0; i < NUM_LINES; i++) begin
-        cpu_reqAddrIn = i * 32;
+    for (i = 0; i < NUM_LINES*4; i++) begin
+        cpu_reqAddrIn = i * 16;
+        $display("Requesting cpu address: %0h", cpu_reqAddrIn);
         #5 // check if memory request is sent
+        $display("PLRU before replacement. Evicted index: %0b", dut.debug_plruIndex);
+        $display("PLRU tree before replacement: %0b", dut.debug_plruTree);
         $display("Cache miss handled. Data insertion: %0b, hit: %0b, req data: %0h , %0b, rsp data: %0h, %0b", dut.dataInsertion, dut.hitStatusOut, dut.mem_reqTagOut, dut.mem_reqTagValidOut, mem_rspTagIn, mem_rspInsLineValidIn);
         #5 // simulate mem response
         temp_data = (i + 1) & 8'hFF; // Extract the lower 8 bits
+        mem_rspTagIn = cpu_reqAddrIn[ADDR_WIDTH-1:OFFSET_WIDTH];
         mem_rspInsLineIn = {16{temp_data}}; // Unique data
         mem_rspInsLineValidIn = 1;
-        mem_rspTagIn = cpu_reqAddrIn[ADDR_WIDTH-1:OFFSET_WIDTH];
+        #5;
         $display("Cache miss handled. Data insertion: %0b, hit: %0b, req data: %0h , %0b, rsp data: %0h, %0b", dut.dataInsertion, dut.hitStatusOut, dut.mem_reqTagOut, dut.mem_reqTagValidOut, mem_rspTagIn, mem_rspInsLineValidIn);
-        #10;
+        #5
         mem_rspInsLineValidIn = 0;
-        $display("Inserted data for address %0h: %0h", cpu_reqAddrIn, mem_rspInsLineIn);
+        $display("Inserted data for address %0h: %0h", cpu_reqAddrIn, mem_rspTagIn);
         display_data_array();
         display_tag_array();
+        $display("PLRU replacement executed. Evicted index: %0b", dut.debug_plruIndex);
+        $display("PLRU tree after replacement: %0b", dut.debug_plruTree);
     end
 
     // Insert one more line to trigger replacement
     cpu_reqAddrIn = 32'hFFFF;
+    $display("Requesting cpu address: %0h", cpu_reqAddrIn);
     temp_data = 8'hFF; // Unique data for this case
     mem_rspInsLineIn = {16{temp_data}};
     mem_rspInsLineValidIn = 1;
@@ -157,14 +168,15 @@ initial begin
     #10;
     mem_rspInsLineValidIn = 0;
 
-    $display("PLRU replacement executed. Evicted index: %0h", dut.debug_plruIndex);
-    $display("PLRU tree after replacement: %0h", dut.debug_plruTree);
+    $display("PLRU replacement executed. Evicted index: %0b", dut.debug_plruIndex);
+    $display("PLRU tree after replacement: %0b", dut.debug_plruTree);
     display_data_array();
     display_tag_array();
 
     // 5. Re-accessing Evicted Line
     $display("Test %0d: Re-accessing Evicted Line", ++test_counter);
     cpu_reqAddrIn = 32'hFFFF; // Accessing evicted line
+    $display("Requesting cpu address: %0h", cpu_reqAddrIn);
     #10;
     $display("Cache hit status: %0b, Retrieved data: %0h", dut.cpu_rspInsLineValidOut, dut.cpu_rspInsLineOut);
     display_data_array();
@@ -174,6 +186,7 @@ initial begin
     // Insert a second line to trigger replacement again
     $display("Test %0d: PLRU Replacement (2nd trigger)", ++test_counter);
     cpu_reqAddrIn = 32'hFFFE;
+    $display("Requesting cpu address: %0h", cpu_reqAddrIn);
     temp_data = 8'hFE; // Unique data for this case
     mem_rspInsLineIn = {16{temp_data}};
     mem_rspInsLineValidIn = 1;
@@ -181,14 +194,15 @@ initial begin
     #10;
     mem_rspInsLineValidIn = 0;
 
-    $display("PLRU replacement executed. Evicted index: %0h", dut.debug_plruIndex);
-    $display("PLRU tree after replacement: %0h", dut.debug_plruTree);
+    $display("PLRU replacement executed. Evicted index: %0b", dut.debug_plruIndex);
+    $display("PLRU tree after replacement: %0b", dut.debug_plruTree);
     display_data_array();
     display_tag_array();
 
     // Insert a third line to trigger replacement again
     $display("Test %0d: PLRU Replacement (3rd trigger)", ++test_counter);
     cpu_reqAddrIn = 32'hFFFD;
+    $display("Requesting cpu address: %0h", cpu_reqAddrIn);
     temp_data = 8'hFD; // Unique data for this case
     mem_rspInsLineIn = {16{temp_data}};
     mem_rspInsLineValidIn = 1;
@@ -196,8 +210,8 @@ initial begin
     #10;
     mem_rspInsLineValidIn = 0;
 
-    $display("PLRU replacement executed. Evicted index: %0h", dut.debug_plruIndex);
-    $display("PLRU tree after replacement: %0h", dut.debug_plruTree);
+    $display("PLRU replacement executed. Evicted index: %0b", dut.debug_plruIndex);
+    $display("PLRU tree after replacement: %0b", dut.debug_plruTree);
     $display("Final Data Array:");
     display_data_array();
     $display("Final Tag Array:");

@@ -12,9 +12,9 @@ parameter logic MISS  = 1'b0;  // Indicates a miss
 parameter logic VALID = 1'b1;  // Indicates validity
 parameter NUM_TAGS = 16;      // Number of tags
 parameter NUM_LINES = 16;     // Number of lines: should be equal to number of tags
-parameter OFFSET_WIDTH = 5;   // Width of each offset
+parameter OFFSET_WIDTH = 4;   // Width of each offset
 parameter ADDR_WIDTH = 32;    // Width of address
-parameter TAG_WIDTH = 27;     // Width of each Tag 
+parameter TAG_WIDTH = 28;     // Width of each Tag 
 parameter LINE_WIDTH = 128;   // Width of each cache line
 parameter P_BITS = $clog2(NUM_TAGS);   // Bits needed for position of line
 

@@ -23,7 +23,6 @@ import ifu_pkg::*;
     // Debug
     output logic dataInsertion,
     output logic hitStatusOut,
-    output logic debug_freeline,
     output logic [LINE_WIDTH * NUM_LINES - 1:0] debug_dataArray, // Flattened dataArray
     output logic [(TAG_WIDTH + 1) * NUM_TAGS - 1:0] debug_tagArray, // Flattened tagArray with valid bit
     output logic [NUM_LINES - 2:0] debug_plruTree, // Current PLRU tree
@@ -33,35 +32,47 @@ import ifu_pkg::*;
 ///////////////////
 // Logic Defines //
 ///////////////////
-tag_arr_t tagArray [NUM_TAGS];
-logic [ADDR_WIDTH - 1 : OFFSET_WIDTH] cpu_reqTagIn;
-data_arr_t dataArray [NUM_LINES];
 
-// Hit status
+// cpu
+logic [ADDR_WIDTH - 1 : OFFSET_WIDTH] cpu_reqTagIn;
+
+// arrays
+tag_arr_t tagArray [NUM_TAGS];
+data_arr_t dataArray [NUM_LINES];
+logic [P_BITS - 1:0] replacementLine;
+
+// Hit 
 logic [P_BITS - 1:0] hitPosition;
 logic [NUM_TAGS - 1:0] hitArray;
 logic hitStatus;
 
 // PLRU
-logic [P_BITS - 1:0] lineForPLRU;
-logic [P_BITS - 1:0] freeLine;
-logic freeLineValid;
 logic [NUM_LINES - 2:0] plruTree;
-logic [NUM_LINES - 2:0] currentTree;
-logic [NUM_LINES - 2:0] tempUpdatedTree;
-logic [P_BITS - 1:0] plruIndex;
+logic [NUM_LINES - 2:0] updatedPlruTree;
+logic [P_BITS - 1:0] updatedPlruIdx; // this is used to calculate the plru after access, or when finding when finding replacementLine (which is the line that we can overwrite)
+logic plruAccessLineValid;
+logic [P_BITS - 1:0] plruAccessLine;
+
+
 
 /////////////
 // Assigns //
 /////////////
+
+// Requested Tag
 assign cpu_reqTagIn = cpu_reqAddrIn[ADDR_WIDTH - 1:OFFSET_WIDTH];
+
+// Hit
 assign hitStatus = |hitArray;
 assign mem_reqTagValidOut = !hitStatus;
+
+// Insertion
 assign dataInsertion = (mem_reqTagValidOut == VALID) && (mem_rspInsLineValidIn == VALID) && (mem_reqTagOut == mem_rspTagIn);
-assign debug_freeline = freeLine;
+
+// Debug
 assign hitStatusOut = hitStatus;
 assign debug_plruTree = plruTree;
-assign debug_plruIndex = plruIndex;
+assign debug_plruIndex = replacementLine;
 
 // Flattened debug arrays for monitoring
 generate
@@ -78,23 +89,17 @@ endgenerate
 // Always Comb Statement //
 ///////////////////////////
 always_comb begin
-    // Local Variables
-    automatic int loopCount;           // Safeguard for infinite loop
-    automatic logic [P_BITS - 1:0] index;
 
-    // Initialize Local Variables
-    index = 0;
-    loopCount = 0;
-    plruIndex = 0;
-    freeLine = 0;
-    freeLineValid = 0;
+    // Initialize Variables
+    plruAccessLineValid = 0;
+    replacementLine = 0;
+    updatedPlruTree = plruTree;
 
     // Hit Status
     for (int i = 0; i < NUM_TAGS; i++) begin
         if (cpu_reqTagIn == tagArray[i].tag && tagArray[i].valid == VALID) begin
             hitArray[i] = 1;
             hitPosition = i;
-            cpu_rspAddrOut = cpu_reqAddrIn;
         end else begin
             hitArray[i] = 0;
         end
@@ -102,54 +107,50 @@ always_comb begin
 
     // Cache Action
     if (hitStatus == HIT) begin
+        cpu_rspAddrOut = cpu_reqAddrIn;
         cpu_rspInsLineOut = dataArray[hitPosition];
         cpu_rspInsLineValidOut = VALID;
-        lineForPLRU = hitPosition;
+        plruAccessLineValid = VALID;
+        plruAccessLine = hitPosition; 
     end else begin
         cpu_rspInsLineValidOut = !VALID;
-        mem_reqTagOut = cpu_reqTagIn;
-        lineForPLRU = freeLine;
+        mem_reqTagOut = cpu_reqTagIn;   
     end
 
     // Line Insertion
-    if (dataInsertion) begin
-        freeLineValid = 0;
-        for (int i = 0; i < NUM_TAGS; i++) begin
-            if (!tagArray[i].valid) begin
-                freeLine = i;
-                freeLineValid = 1;
-                break;
+    if (dataInsertion) begin       
+        cpu_rspAddrOut = cpu_reqAddrIn;
+        cpu_rspInsLineOut = mem_rspInsLineValidIn; 
+        cpu_rspInsLineValidOut = VALID;
+        // PLRU update on Insertion
+        updatedPlruIdx = 0;
+        for (int level = 0; level < P_BITS ; level++ ) begin
+            if (plruTree[updatedPlruIdx] == 0) begin
+                replacementLine[P_BITS - level - 1] = 0;
+                updatedPlruIdx = (updatedPlruIdx << 1) + 1;    
+            end else begin
+                replacementLine[P_BITS - level - 1] = 1;
+                updatedPlruIdx = (updatedPlruIdx << 1) + 1;
             end
         end
-        if (freeLineValid == 0) begin
-            freeLine = plruIndex;
+        plruAccessLine = hitPosition;
+        plruAccessLineValid = VALID;    
+    end
+
+    // PLRU update on access
+    if (plruAccessLineValid) begin
+        updatedPlruIdx = 0;
+        for (int level = 0; level < P_BITS ; level++ ) begin
+            if (plruAccessLine[P_BITS - level - 1] == 0) begin
+                updatedPlruTree[updatedPlruIdx] = 1;
+                updatedPlruIdx = (updatedPlruIdx << 1) + 2;
+            end else begin
+                updatedPlruTree[updatedPlruIdx] = 0;
+                updatedPlruIdx = (updatedPlruIdx << 1) + 1;
+            end
         end
-    end
+    end 
 
-    // PLRU Tree Update
-    tempUpdatedTree = currentTree;
-    for (int level = P_BITS - 1; level >= 0; level--) begin
-        tempUpdatedTree[index] = !(lineForPLRU[level]);
-        index = (index << 1) | lineForPLRU[level];
-    end
-
-    // Debug the updated tree
-    $display("Updated PLRU Tree: %b", tempUpdatedTree);
-
-    // PLRU Index Calculation
-    plruIndex = 0;
-    while (plruIndex < NUM_LINES - 1 && loopCount < NUM_LINES) begin
-        if (plruTree[plruIndex] === 1'bx) begin
-            $display("Error: Invalid value in PLRU Tree at index %0d", plruIndex);
-            plruIndex = 0;
-            break;
-        end
-        plruIndex = (plruIndex << 1) | plruTree[plruIndex];
-        loopCount++;
-    end
-    if (loopCount == NUM_LINES) begin
-        $display("Error: Infinite loop detected in PLRU index calculation!");
-    end
 end
 
 ///////////////////////////
@@ -161,20 +162,17 @@ always_ff @(posedge Clock or posedge Rst) begin
             tagArray[i] <= 0;
             dataArray[i] <= 0;
         end
-        plruTree <= 0;
-        currentTree <= 0;
+        plruTree <= 15'b0;
     end else begin
         if (hitStatus == HIT) begin
-            plruTree <= tempUpdatedTree; 
-            currentTree <= tempUpdatedTree; // Sync currentTree
+            plruTree <= updatedPlruTree; 
         end
 
         if (dataInsertion) begin
-            dataArray[freeLine] <= mem_rspInsLineIn;
-            tagArray[freeLine].valid <= VALID;
-            tagArray[freeLine].tag[TAG_WIDTH-1:0] <= mem_rspTagIn[TAG_WIDTH-1:0];
-            plruTree <= tempUpdatedTree; 
-            currentTree <= tempUpdatedTree; // Sync currentTree
+            dataArray[replacementLine] <= mem_rspInsLineIn;
+            tagArray[replacementLine].valid <= VALID;
+            tagArray[replacementLine].tag[TAG_WIDTH-1:0] <= mem_rspTagIn[TAG_WIDTH-1:0];
+            plruTree <= updatedPlruTree; 
         end
     end
 end

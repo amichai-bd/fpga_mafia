@@ -1,4 +1,4 @@
-include "macros.vh"
+`include "macros.vh"
 
 module ifu_prefetcher
 import ifu_pkg::*;
@@ -17,9 +17,9 @@ import ifu_pkg::*;
     output logic prefetch_addr_valid_out,             // Indicates if the prefetch address is valid
 
     // Memory Interface
-    input logic mem_prefetch_ready_in                    // Indicates if memory can accept prefetch requests
+    input logic mem_prefetch_ready_in,                   // Indicates if memory can accept prefetch requests
     output logic [ADDR_WIDTH-1:0] mem_prefetch_addr_out, // Predicted address sent to memory
-    output logic mem_prefetch_valid_out,                 // Indicates if the prefetch request is valid
+    output logic mem_prefetch_valid_out                 // Indicates if the prefetch request is valid
 );
 
     
