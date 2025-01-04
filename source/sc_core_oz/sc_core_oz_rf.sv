@@ -23,6 +23,6 @@ import sc_core_oz_pkg::*;
     input logic [31:0] rd_reg_data,
     input logic [4:0] rd_reg_address
 );
-logic [31:0] rf [30:0];
+logic [31:0] rf [30:0];   //register 0 has the value 0
 
 endmodule

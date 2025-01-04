@@ -1,0 +1,1 @@
+../../../verif/sc_core_oz/tb/alu_oz_tb.sv
