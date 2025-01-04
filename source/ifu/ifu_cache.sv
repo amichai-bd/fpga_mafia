@@ -133,7 +133,7 @@ always_comb begin
                 updatedPlruIdx = (updatedPlruIdx << 1) + 1;
             end
         end
-        plruAccessLine = hitPosition;
+        plruAccessLine = replacementLine;
         plruAccessLineValid = VALID;    
     end
 

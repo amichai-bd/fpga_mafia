@@ -114,8 +114,8 @@ initial begin
     // check if data insertion mode is on
     #5
     $display("Cache miss handled. Data insertion: %0b, hit: %0b, req data: %0h , %0b, rsp data: %0h, %0b", dut.dataInsertion, dut.hitStatusOut, dut.mem_reqTagOut, dut.mem_reqTagValidOut, mem_rspTagIn, mem_rspInsLineValidIn);
-    $display("PLRU before replacement. Evicted index: %0b", dut.debug_plruIndex);
-    $display("PLRU tree before replacement: %0b", dut.debug_plruTree);
+    // $display("PLRU before replacement. Evicted index: %0b", dut.debug_plruIndex);
+    // $display("PLRU tree before replacement: %0b", dut.debug_plruTree);
 
     #10
     mem_rspInsLineValidIn = 0;
@@ -139,8 +139,8 @@ initial begin
         cpu_reqAddrIn = i * 16;
         $display("Requesting cpu address: %0h", cpu_reqAddrIn);
         #5 // check if memory request is sent
-        $display("PLRU before replacement. Evicted index: %0b", dut.debug_plruIndex);
-        $display("PLRU tree before replacement: %0b", dut.debug_plruTree);
+        // $display("PLRU before replacement. Evicted index: %0b", dut.debug_plruIndex);
+        // $display("PLRU tree before replacement: %0b", dut.debug_plruTree);
         $display("Cache miss handled. Data insertion: %0b, hit: %0b, req data: %0h , %0b, rsp data: %0h, %0b", dut.dataInsertion, dut.hitStatusOut, dut.mem_reqTagOut, dut.mem_reqTagValidOut, mem_rspTagIn, mem_rspInsLineValidIn);
         #5 // simulate mem response
         temp_data = (i + 1) & 8'hFF; // Extract the lower 8 bits
