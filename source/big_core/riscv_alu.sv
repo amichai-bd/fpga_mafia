@@ -13,11 +13,11 @@ module ALU(
     logic [31:0] rs1, rs2;           // Values of rs1 and rs2 registers
 
 
-    assign opcode = instruction[6:0];
-    assign funct3 = instruction[14:12];
-    assign funct7 = instruction[31:25];
-    assign rs1_index = instruction[19:15];
-    assign rs2_index = instruction[24:20];
+    assign opcode = command[6:0];
+    assign funct3 = command[14:12];
+    assign funct7 = command[31:25];
+    assign rs1_index = command[19:15];
+    assign rs2_index = command[24:20];
 
     assign rs1 = reg_file[rs1_index];
     assign rs2 = reg_file[rs2_index];
@@ -30,23 +30,23 @@ module ALU(
             case (funct3)
                 3'b000:
                     if(funct7 == 7'b0000000) begin
-                        result = rs1+rs2;
+                        result = rs1+rs2; //ADD
                     end
                     else if(funct7 == 7'b0100000) begin
-                        result = rs1-rs2;
+                        result = rs1-rs2; //SUB
                     end
                 3'b001: begin
-                    result = rs1 <<rs2 [4:0];
+                    result = rs1 <<rs2 [4:0]; //Shift Right Logical.
                 end 
                 3'b010: begin
-                     result = ($signed(rs1) < $signed(rs2)) ? 32'b1 : 32'b0;
+                     result = ($signed(rs1) < $signed(rs2)) ? 32'b1 : 32'b0; //SLT
                 end
 
                 3'b011: begin
-                    result = (rs1 < rs2) ? 32'b1 : 32'b0;
+                    result = (rs1 < rs2) ? 32'b1 : 32'b0; //SLT UNSIGNED
                 end
                 3'b100: begin
-                    result = rs1 ^ rs2;
+                    result = rs1 ^ rs2; //XOR
                 end
                 3'b101: begin
                     if (funct7 == 7'b0000000) begin
@@ -56,10 +56,10 @@ module ALU(
                     end
                 end
                 3'b110: begin
-                    result = rs1 | rs2;
+                    result = rs1 | rs2; //OR
                 end
                 3'b111: begin
-                    result = rs1 & rs2;
+                    result = rs1 & rs2; //AND
                 end
                 default: begin
                     result = 32'hDEADBEEF; // Error/undefined operation
