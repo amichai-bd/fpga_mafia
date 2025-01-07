@@ -33,10 +33,12 @@ parameter NUM_OF_CONSTS   = 4;  // number of constants is the cpuc
 
 //number of components that can be connected to amy register
 parameter NUM_OF_COMPONENTS  = NUM_OF_REGS + NUM_OF_MUL + NUM_OF_ADDERS + NUM_OF_CMP + NUM_OF_MUX + NUM_OF_EQUAL + 
-                               NUM_OF_SING_MEM + NUM_OF_DUAL_MEM + NUM_OF_QUAD_MEM + NUM_OF_PC;  
+                               NUM_OF_SING_MEM + NUM_OF_DUAL_MEM + NUM_OF_QUAD_MEM + NUM_OF_PC + NUM_OF_CONSTS;  
 
-parameter PROGRAM_SIZE  = 32;  // number of instructions
-
+parameter PROGRAM_SIZE  = 8;  // number of instructions
+// instruction length = buffer number
+parameter INST_LENGTH   = NUM_OF_COMPONENTS*NUM_OF_REGS + NUM_OF_REGS*(NUM_OF_MUL + NUM_OF_ADDERS + NUM_OF_CMP + NUM_OF_MUX
+                                                                     + NUM_OF_EQUAL)*2;
 
 typedef struct packed {
 

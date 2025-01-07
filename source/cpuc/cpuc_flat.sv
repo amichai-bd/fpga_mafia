@@ -1,3 +1,48 @@
+//---------------------------------------------
+// Project:   CPUC
+// File name: cpuc_registers 
+// Date:      26.12.24
+// Author:     
+//---------------------------------------------
+// Description: cpuc_package
+//---------------------------------------------
+parameter SIGNED_CMP = 1;    // by default allow signed operations 
+parameter DATA_WIDTH = 32;   // width of data in the cpu
+
+parameter MEM_SIZE   = 8096; // mem size of 8096*32 = 32kbyte
+parameter ADDR_WIDTH = $clog2(MEM_SIZE);   // width of address in the memory
+
+// number of instantiated units
+parameter NUM_OF_REGS     = 8;  // number of registers
+parameter NUM_OF_MUL      = 0;   // number of multipliers
+parameter NUM_OF_ADDERS   = 2;   // number of adders
+parameter NUM_OF_CMP      = 2;   // number of comperators
+parameter NUM_OF_MUX      = 0;   // number of muxes
+parameter NUM_OF_EQUAL    = 2;   // number of is equal
+parameter NUM_OF_SING_MEM = 0;   // number of is single prot ram
+parameter NUM_OF_DUAL_MEM = 0;   // number of is dual port ram
+parameter NUM_OF_QUAD_MEM = 0;   // number of is quad port ram
+parameter NUM_OF_PC       = 1;   // number of program counters
+parameter NUM_OF_INST_MEM = 1;   // number of instruction memory
+
+parameter NUM_OF_CONSTS   = 4;  // number of constants is the cpuc
+
+//number of components that can be connected to amy register
+parameter NUM_OF_COMPONENTS  = NUM_OF_REGS + NUM_OF_MUL + NUM_OF_ADDERS + NUM_OF_CMP + NUM_OF_MUX + NUM_OF_EQUAL + 
+                               NUM_OF_SING_MEM + NUM_OF_DUAL_MEM + NUM_OF_QUAD_MEM + NUM_OF_PC + NUM_OF_CONSTS;  
+
+parameter PROGRAM_SIZE  = 8;  // number of instructions
+// instruction length = buffer number
+parameter INST_LENGTH   = NUM_OF_COMPONENTS*NUM_OF_REGS + NUM_OF_REGS*(NUM_OF_MUL + NUM_OF_ADDERS + NUM_OF_CMP + NUM_OF_MUX
+                                                                     + NUM_OF_EQUAL)*2;
+
+typedef struct packed {
+
+    logic [NUM_OF_REGS+NUM_OF_PC-1:0][DATA_WIDTH-1:0] reg_outputs;
+
+} t_reg_outputs;
+
+
 //------------------------------------
 // Project:   CPUC
 // File name: cpuc.sv
@@ -13,14 +58,13 @@
 // TODO - add mux
 
 
-`include "cpuc_macros.vh"
-
 module cpuc 
-import cpuc_package::*;
 (
     input logic clk,
     input logic rst,
-    output var t_reg_outputs reg_outputs
+    input logic [INST_LENGTH-1:0] instruction,
+    input logic                   wren,
+    output var t_reg_outputs      reg_outputs
 );
 
 //follow the pattern when adding new components
@@ -67,7 +111,7 @@ generate
       for(tri_state_adder_in1=0; tri_state_adder_in1 < NUM_OF_REGS+NUM_OF_PC; tri_state_adder_in1++) begin 
                 cpuc_tristate cpuc_tristate_reg_to_adder_in1
                 (
-                    .en(NUM_OF_COMPONENTS*(NUM_OF_REGS + NUM_OF_PC)+tri_state_adder_in1),
+                    .en(buff_en[NUM_OF_COMPONENTS*(NUM_OF_REGS + NUM_OF_PC)+tri_state_adder_in1]),
                     .data_in(regs_array_output[tri_state_adder_in1]),
                     .data_out(adder_in1) 
                 );
@@ -75,7 +119,7 @@ generate
           for(tri_state_adder_in2=0; tri_state_adder_in2 < NUM_OF_REGS+NUM_OF_PC; tri_state_adder_in2++) begin 
                 cpuc_tristate cpuc_tristate_reg_to_adder_in2
                 (
-                    .en(NUM_OF_COMPONENTS*(NUM_OF_REGS + NUM_OF_PC)+NUM_OF_ADDERS+tri_state_adder_in2), 
+                    .en(buff_en[NUM_OF_COMPONENTS*(NUM_OF_REGS + NUM_OF_PC)+NUM_OF_ADDERS+tri_state_adder_in2]), 
                     .data_in(regs_array_output[tri_state_adder_in2]),
                     .data_out(adder_in2) 
                 );
@@ -89,7 +133,7 @@ generate
       for(tri_state_greater_in1=0; tri_state_greater_in1 < NUM_OF_REGS+NUM_OF_PC; tri_state_greater_in1++) begin 
                 cpuc_tristate cpuc_tristate_reg_to_greater_in1
                 (
-                    .en(NUM_OF_COMPONENTS*(NUM_OF_REGS + NUM_OF_PC)+2*NUM_OF_ADDERS + tri_state_greater_in1),
+                    .en(buff_en[NUM_OF_COMPONENTS*(NUM_OF_REGS + NUM_OF_PC)+2*NUM_OF_ADDERS + tri_state_greater_in1]),
                     .data_in(regs_array_output[tri_state_greater_in1]),
                     .data_out(greater_in1) 
                 );
@@ -97,7 +141,7 @@ generate
           for(tri_state_greater_in2=0; tri_state_greater_in2 < NUM_OF_REGS+NUM_OF_PC; tri_state_greater_in2++) begin 
                 cpuc_tristate cpuc_tristate_reg_to_greater_in2
                 (
-                    .en(NUM_OF_COMPONENTS*(NUM_OF_REGS + NUM_OF_PC)+2*NUM_OF_ADDERS + NUM_OF_CMP+tri_state_greater_in2),
+                    .en(buff_en[NUM_OF_COMPONENTS*(NUM_OF_REGS + NUM_OF_PC)+2*NUM_OF_ADDERS + NUM_OF_CMP+tri_state_greater_in2]),
                     .data_in(regs_array_output[tri_state_greater_in2]),
                     .data_out(greater_in2) 
                 );
@@ -111,7 +155,7 @@ generate
       for(tri_state_equal_in1=0; tri_state_equal_in1 < NUM_OF_REGS+NUM_OF_PC; tri_state_equal_in1++) begin 
                 cpuc_tristate cpuc_tristate_reg_to_equal_in1
                 (
-                    .en(NUM_OF_COMPONENTS*(NUM_OF_REGS + NUM_OF_PC)+2*NUM_OF_ADDERS + 2*NUM_OF_CMP+tri_state_equal_in1),
+                    .en(buff_en[NUM_OF_COMPONENTS*(NUM_OF_REGS + NUM_OF_PC)+2*NUM_OF_ADDERS + 2*NUM_OF_CMP+tri_state_equal_in1]),
                     .data_in(regs_array_output[tri_state_equal_in1]),
                     .data_out(equal_in1) 
                 );
@@ -119,7 +163,7 @@ generate
           for(tri_state_equal_in2=0; tri_state_equal_in2 < NUM_OF_REGS+NUM_OF_PC; tri_state_equal_in2++) begin 
                 cpuc_tristate cpuc_tristate_reg_to_equal_in2
                 (
-                    .en(NUM_OF_COMPONENTS*(NUM_OF_REGS + NUM_OF_PC)+2*NUM_OF_ADDERS + 2*NUM_OF_CMP+ NUM_OF_EQUAL+tri_state_equal_in2),
+                    .en(buff_en[NUM_OF_COMPONENTS*(NUM_OF_REGS + NUM_OF_PC)+2*NUM_OF_ADDERS + 2*NUM_OF_CMP+ NUM_OF_EQUAL+tri_state_equal_in2]),
                     .data_in(regs_array_output[tri_state_equal_in2]),
                     .data_out(equal_in2) 
                 );
@@ -213,7 +257,12 @@ end
 logic [$clog2(PROGRAM_SIZE)-1:0] pc, next_pc;
 
 assign next_pc = (buff_en[NUM_OF_REGS+NUM_OF_PC-1] == 1'b1) ? regs_array_output[NUM_OF_REGS+NUM_OF_PC-1] : pc+1; // FIXME - pc can except any component data not only from regs
-`CPUC_RST_DFF(pc, next_pc, clk, rst)
+always_ff@(posedge clk) begin
+    if(rst)
+        pc <= '0;
+    else
+        pc <= next_pc;
+end
 
 cpuc_single_ram 
 #(.ADDR_WIDTH($clog2(PROGRAM_SIZE)), .DATA_WIDTH(INST_LENGTH))
@@ -221,10 +270,181 @@ instruction_memory
 (
     .clk(clk),
     .address(pc), // degined as A
-    .wren(1'b0),
-    .data('0),    // defined as V
+    .wren(wren),
+    .data(instruction),    // defined as V
     .q(buff_en)        // defined as M
 
 );
 
+endmodule
+
+
+
+//------------------------------------
+// Project:   CPUC
+// File name: cpuc_adder.sv
+// Date:      26.12.24
+// Author:     
+//--------------------------------------
+// Description: adding two number
+//--------------------------------------
+module cpuc_adder
+(
+    input logic [DATA_WIDTH-1:0]  data_in1,
+    input logic [DATA_WIDTH-1:0]  data_in2,
+    output logic [DATA_WIDTH-1:0] data_out
+
+);
+  
+    assign data_out = data_in1 + data_in2;
+        
+endmodule
+
+//------------------------------------
+// Project:   CPUC
+// File name: cpuc_cmp.sv
+// Date:      26.12.24
+// Author:     
+//--------------------------------------
+// Description: comperator
+//--------------------------------------
+
+module cpuc_cmp
+(
+    input logic [DATA_WIDTH-1:0]  data_in1,
+    input logic [DATA_WIDTH-1:0]  data_in2,
+    output logic [DATA_WIDTH-1:0] data_out
+
+);
+  
+  generate
+    if(SIGNED_CMP == 1) begin
+        assign data_out = ($signed(data_in1) > $signed(data_in2)) ? data_in1 : data_in2;  
+    end else begin
+        assign data_out = (data_in1 > data_in2) ? data_in1 : data_in2; 
+    end
+  endgenerate
+        
+endmodule
+
+//---------------------------------------------
+// Project:   CPUC
+// File name: cpuc_constants 
+// Date:      26.12.24
+// Author:     
+//---------------------------------------------
+// Description: cpuc_constants
+//---------------------------------------------
+module cpuc_constants
+(
+    output logic [DATA_WIDTH-1:0] const0,
+    output logic [DATA_WIDTH-1:0] const1,
+    output logic [DATA_WIDTH-1:0] const2,
+    output logic [DATA_WIDTH-1:0] const3
+
+);
+
+assign const0 = 'h1;
+assign const1 = 'h2;
+assign const2 = 'h3;
+assign const3 = 'h4;
+
+endmodule
+
+//------------------------------------
+// Project:   CPUC
+// File name: cpuc_equal.sv
+// Date:      26.12.24
+// Author:     
+//--------------------------------------
+// Description: is_equal
+//--------------------------------------
+module cpuc_equal
+(
+    input logic [DATA_WIDTH-1:0]  data_in1,
+    input logic [DATA_WIDTH-1:0]  data_in2,
+    output logic [DATA_WIDTH-1:0] data_out
+
+);
+  
+    assign data_out = (data_in1 == data_in2) ? {DATA_WIDTH{1'b1}} : '0;
+        
+endmodule
+
+//------------------------------------
+// Project:   CPUC
+// File name: cpuc_register.sv
+// Date:      26.12.24
+// Author:     
+//--------------------------------------
+// Description: register
+//--------------------------------------
+module cpuc_register
+(
+    input logic                   clk,
+    input logic                   rst,
+    input logic [DATA_WIDTH-1:0]  data_in,  // inputs to all registers
+    output logic [DATA_WIDTH-1:0] data_out  // output from all registers
+);
+
+    logic [DATA_WIDTH-1:0] register;
+
+   always_ff@(posedge clk) begin
+        if(rst)
+            register <= '0;
+        else
+            register <= data_in;
+   end
+
+    assign data_out = register;
+
+
+endmodule
+
+//------------------------------------
+// Project:   CPUC
+// File name: cpuc_single_ram.sv
+// Date:      26.12.24
+// Author:     
+//--------------------------------------
+// Description: single port ram
+//--------------------------------------
+module cpuc_single_ram
+#(parameter ADDR_WIDTH = 32, DATA_WIDTH = 32)
+(
+    input  logic                  clk,
+    input  logic [ADDR_WIDTH-1:0] address, // degined as A
+    input  logic                  wren,
+    input  logic [DATA_WIDTH-1:0] data,    // defined as V
+    output logic [DATA_WIDTH-1:0] q        // defined as M
+);
+
+    logic [DATA_WIDTH-1:0] mem [0:MEM_SIZE-1];
+
+    always_ff@(posedge clk) begin
+        if(wren)
+            mem[address] <= data;
+    end
+
+    assign q = mem[address];
+
+endmodule
+
+//------------------------------------
+// Project:   CPUC
+// File name: cpuc_tristate.sv
+// Date:      26.12.24
+// Author:     
+//--------------------------------------
+// Description: mux
+//--------------------------------------
+module cpuc_tristate
+(
+    input logic                   en,
+    input logic [DATA_WIDTH-1:0]  data_in,
+    output logic [DATA_WIDTH-1:0] data_out
+);
+
+    assign data_out = (en==1'b1) ? data_in : {DATA_WIDTH{1'bz}};
+    
 endmodule

@@ -18,7 +18,7 @@ import cpuc_package::*;
 
 );
   
-  generate;
+  generate
     if(SIGNED_CMP == 1) begin
         assign data_out = ($signed(data_in1) > $signed(data_in2)) ? data_in1 : data_in2;  
     end else begin
