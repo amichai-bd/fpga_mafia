@@ -34,7 +34,7 @@ import ifu_pkg::*;
 ///////////////////
 
 // cpu
-logic [ADDR_WIDTH - 1 : OFFSET_WIDTH] cpu_reqTagIn;
+logic [TAG_WIDTH - 1 : 0] cpu_reqTagIn;
 
 // arrays
 tag_arr_t tagArray [NUM_TAGS];
@@ -46,14 +46,13 @@ logic [P_BITS - 1:0] hitPosition;
 logic [NUM_TAGS - 1:0] hitArray;
 logic hitStatus;
 
+
 // PLRU
 logic [NUM_LINES - 2:0] plruTree;
 logic [NUM_LINES - 2:0] updatedPlruTree;
 logic [P_BITS - 1:0] updatedPlruIdx; // this is used to calculate the plru after access, or when finding when finding replacementLine (which is the line that we can overwrite)
 logic plruAccessLineValid;
 logic [P_BITS - 1:0] plruAccessLine;
-
-
 
 /////////////
 // Assigns //
@@ -67,7 +66,7 @@ assign hitStatus = |hitArray;
 assign mem_reqTagValidOut = !hitStatus;
 
 // Insertion
-assign dataInsertion = (mem_reqTagValidOut == VALID) && (mem_rspInsLineValidIn == VALID) && (mem_reqTagOut == mem_rspTagIn);
+assign dataInsertion = mem_rspInsLineValidIn && mem_reqTagValidOut;
 
 // Debug
 assign hitStatusOut = hitStatus;
@@ -110,19 +109,17 @@ always_comb begin
         cpu_rspAddrOut = cpu_reqAddrIn;
         cpu_rspInsLineOut = dataArray[hitPosition];
         cpu_rspInsLineValidOut = VALID;
-        plruAccessLineValid = VALID;
         plruAccessLine = hitPosition; 
+        plruAccessLineValid = VALID;
     end else begin
         cpu_rspInsLineValidOut = !VALID;
         mem_reqTagOut = cpu_reqTagIn;   
     end
 
     // Line Insertion
-    if (dataInsertion) begin       
-        cpu_rspAddrOut = cpu_reqAddrIn;
-        cpu_rspInsLineOut = mem_rspInsLineValidIn; 
-        cpu_rspInsLineValidOut = VALID;
-        // PLRU update on Insertion
+    if (dataInsertion) begin 
+        
+        // first we update PLRU update on Insertion
         updatedPlruIdx = 0;
         for (int level = 0; level < P_BITS ; level++ ) begin
             if (plruTree[updatedPlruIdx] == 0) begin
@@ -133,8 +130,15 @@ always_comb begin
                 updatedPlruIdx = (updatedPlruIdx << 1) + 1;
             end
         end
-        plruAccessLine = replacementLine;
-        plruAccessLineValid = VALID;    
+        
+        // if this line is requested by the cpu then we can output it
+        if (cpu_reqTagIn == mem_rspTagIn)  begin
+            cpu_rspAddrOut = cpu_reqAddrIn;
+            cpu_rspInsLineOut = mem_rspInsLineValidIn; 
+            cpu_rspInsLineValidOut = VALID;
+            plruAccessLine = replacementLine;
+            plruAccessLineValid = VALID;   // the line is considered accessed
+        end
     end
 
     // PLRU update on access
@@ -168,7 +172,7 @@ always_ff @(posedge Clock or posedge Rst) begin
             plruTree <= updatedPlruTree; 
         end
 
-        if (dataInsertion) begin
+        if (mem_rspInsLineValidIn) begin
             dataArray[replacementLine] <= mem_rspInsLineIn;
             tagArray[replacementLine].valid <= VALID;
             tagArray[replacementLine].tag[TAG_WIDTH-1:0] <= mem_rspTagIn[TAG_WIDTH-1:0];

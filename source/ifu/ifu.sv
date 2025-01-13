@@ -8,67 +8,95 @@ import ifu_pkg::*;
     input logic Rst,
 
     // CPU Interface
-    input logic [ADDR_WIDTH-1:0] cpu_reqAddrIn, // Address requested by the CPU
-    // i think maybe we don't have to put this as an output because the CPU don't care about it. but i put it just in case 
-    output logic [ADDR_WIDTH-1:0] cpu_rspAddrOut, // Address of the line in the response to CPU 
-    output logic [LINE_WIDTH-1:0] cpu_rspInsLineOut, // Instruction line in the response to CPU
-    output logic cpu_rspInsLineValidOut, // Indicates if the response is valid
+    input logic [ADDR_WIDTH-1:0] cpu_reqAddrIn,         // Address requested by the CPU
+    output logic [ADDR_WIDTH-1:0] cpu_rspAddrOut,       // Address of the line in the response to CPU 
+    output logic [LINE_WIDTH-1:0] cpu_rspInsLineOut,    // Instruction line in the response to CPU
+    output logic cpu_rspInsLineValidOut,                // Indicates if the response is valid
 
     // Memory Interface
-    input logic mem_ready_in,                      // Indicates if memory is ready for requests
-    input logic [TAG_WIDTH-1:0] mem_rspTagIn,      // Tag of the line provided by memory
-    input logic [LINE_WIDTH-1:0] mem_rspInsLineIn, // Line data provided by memory
-    input logic mem_rspInsLineValidIn,            // Valid signal for memory response
-    output logic [ADDR_WIDTH-1:0] mem_reqAddrOut, // Address requested by the IFU
-    output logic mem_reqValidOut                  // Indicates if a memory request is valid
+    input logic [TAG_WIDTH-1:0] mem_rspTagIn,       // Tag of the line provided by memory
+    input logic [LINE_WIDTH-1:0] mem_rspInsLineIn,  // Line data provided by memory
+    input logic mem_rspInsLineValidIn,              // Valid signal for memory response
+    output logic [ADDR_WIDTH-1:0] mem_reqTagOut,    // Indicates if memory is ready for requests
+    output logic mem_reqTagValidOut                    // Indicates if a memory request is valid
 );
 
 
+///////////////////
+// Logic Defines //
+///////////////////
+// data insertion
+logic insertionOnMiss;
+logic insertionOnPrefetch;
 
-// Cache Module
-    ifu_cache ifu_cache (
-        .Clock(Clock),                                        // Input
-        .Rst(Rst),                                            // Input
-        // CPU Interface
-        .cpu_reqAddrIn(cpu_reqAddrIn),                        // Input
-        .cpu_rspAddrOut(cpu_rspAddrOut),                      // Output
-        .cpu_rspInsLineOut(cpu_rspInsLineOut),                // Output
-        .cpu_rspInsLineValidOut(cpu_rspInsLineValidOut),      // Output
-        // Memory Interface
-        .mem_rspTagIn(mem_rspTagIn),                          // Input
-        .mem_rspInsLineIn(mem_rspInsLineIn),                  // Input
-        .mem_rspInsLineValidIn(mem_rspInsLineValidIn),        // Input
-        .mem_reqTagOut(mem_reqAddrOut),                       // Output
-        .mem_reqTagValidOut(mem_reqValidOut),                 // Output
-        // Prefetcher Interface
-        .cache_miss_addr_out(cache_miss_addr),                // Output
-        .cache_miss_valid_out(cache_miss_valid)               // Output
-    );
+// cache signals
+logic [TAG_WIDTH - 1: 0] c_mem_reqTagOut;
+logic c_mem_reqTagValidOut;
+
+// prefetcher signals
+logic [TAG_WIDTH - 1: 0] p_mem_reqTagOut;
+logic p_mem_reqTagValidOut;
+
+///////////
+// Cache //
+///////////
+ifu_cache ifu_cache (
+    .Clock(Clock),                                          // Input
+    .Rst(Rst),                                              // Input
+    // CPU Interface
+    .cpu_reqAddrIn(cpu_reqAddrIn),                          // Input
+    .cpu_rspAddrOut(cpu_rspAddrOut),                        // Output
+    .cpu_rspInsLineOut(cpu_rspInsLineOut),                  // Output
+    .cpu_rspInsLineValidOut(cpu_rspInsLineValidOut),        // Output
+
+    // Memory Interface
+    .mem_rspTagIn(mem_rspTagIn),                            // Input
+    .mem_rspInsLineIn(mem_rspInsLineIn),                    // Input
+    .mem_rspInsLineValidIn(mem_rspInsLineValidIn),          // Input
+    .mem_reqTagOut(c_mem_reqTagOut),                        // Output
+    .mem_reqTagValidOut(c_mem_reqTagValidOut)               // Output
+);
+
+////////////////
+// Prefetcher //
+////////////////
+ifu_prefetcher ifu_prefetcher (
+    .Clock(Clock),                                          // Input
+    .Rst(Rst),                                              // Input
+    // CPU Interface
+    .cpu_reqAddrIn(cpu_reqAddrIn),                          // Input
+            
+    // Memory Interface
+    .mem_rspTagIn(mem_rspTagIn),                            // input
+    .mem_rspInsLineValidIn(mem_rspInsLineValidIn),          // input
+    .mem_reqTagOut(p_mem_reqTagOut),                        // Output  
+    .mem_reqTagValidOut(p_mem_reqTagValidOut)               // Output
+);
 
 
-
-    // Prefetcher Module
-    ifu_prefetcher ifu_prefetcher (
-        .Clock(Clock),                                        // Input
-        .Rst(Rst),                                            // Input
-        // CPU Interface
-        .cpu_reqAddrIn(cpu_reqAddrIn),                        // Input
-        // Cache Interface
-        .cache_miss_addr_in(cache_miss_addr),                 // Input
-        .cache_miss_valid_in(cache_miss_valid),               // Input
-        .prefetch_addr_out(prefetch_addr),                    // Output
-        .prefetch_addr_valid_out(prefetch_valid),             // Output
-        // Memory Interface
-        .mem_prefetch_ready_in(mem_ready_in),                 // Input
-        .mem_prefetch_addr_out(mem_prefetch_addr),            // Output
-        .mem_prefetch_valid_out(mem_prefetch_valid)           // Output
-    );
+/////////////
+// Assigns //
+/////////////
+assign insertionOnMiss = (c_mem_reqTagValidOut == VALID) && (mem_rspInsLineValidIn == VALID) && (c_mem_reqTagOut == mem_rspTagIn);
+assign insertionOnPrefetch = (mem_rspInsLineValidIn == VALID) && (p_mem_reqTagValidOut == !VALID) && !insertionOnMiss;
 
 
+///////////////////////////
+// Always Comb Statement //
+///////////////////////////
+always_comb begin
 
+    if (insertionOnMiss) begin
+       mem_reqTagOut = c_mem_reqTagOut;
+       mem_reqTagValidOut = VALID;
+    end 
 
+    if (insertionOnPrefetch) begin
+        mem_reqTagOut = p_mem_reqTagOut;
+        mem_reqTagValidOut = VALID;
+    end
 
-
+end
 
 
 endmodule

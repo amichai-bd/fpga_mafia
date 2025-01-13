@@ -1,32 +1,35 @@
 `timescale 1ns/1ps
-`include "macros.vh"
 
 module ifu_cache_tb;
 
-    // Import parameters from ifu_pkg
     import ifu_pkg::*;
-
-    // Signals
+  
+    // Inputs
     logic Clock;
     logic Rst;
-
     logic [ADDR_WIDTH-1:0] cpu_reqAddrIn;
+    logic [LINE_WIDTH-1:0] mem_rspInsLineIn;
+    logic mem_rspInsLineValidIn;
+    logic [TAG_WIDTH-1:0] mem_rspTagIn;
+
+    // Outputs
     logic [ADDR_WIDTH-1:0] cpu_rspAddrOut;
     logic [LINE_WIDTH-1:0] cpu_rspInsLineOut;
     logic cpu_rspInsLineValidOut;
-
-    logic [TAG_WIDTH-1:0] mem_rspTagIn;
-    logic [LINE_WIDTH-1:0] mem_rspInsLineIn;
-    logic mem_rspInsLineValidIn;
     logic [TAG_WIDTH-1:0] mem_reqTagOut;
     logic mem_reqTagValidOut;
 
-    logic dataInsertion;
+    // Debug Outputs
     logic hitStatusOut;
-    logic [NUM_LINES-2:0] plruTreeOut;
+    logic dataInsertion;
+    logic [LINE_WIDTH * NUM_LINES - 1:0] debug_dataArray;
+    logic [(TAG_WIDTH + 1) * NUM_TAGS - 1:0] debug_tagArray;
+    logic [NUM_LINES - 2:0] debug_plruTree;
+    logic [P_BITS - 1:0] debug_plruIndex;
 
-    // Instantiate the module under test (MUT)
-    ifu_cache dut (
+    // Instantiate the DUT (Device Under Test)
+    ifu_cache 
+     dut (
         .Clock(Clock),
         .Rst(Rst),
         .cpu_reqAddrIn(cpu_reqAddrIn),
@@ -38,50 +41,186 @@ module ifu_cache_tb;
         .mem_rspInsLineValidIn(mem_rspInsLineValidIn),
         .mem_reqTagOut(mem_reqTagOut),
         .mem_reqTagValidOut(mem_reqTagValidOut),
-        .dataInsertion(dataInsertion),
+        // .dataInsertion(dataInsertion),
         .hitStatusOut(hitStatusOut),
-        .plruTreeOut(plruTreeOut)
+        .debug_dataArray(debug_dataArray),
+        .debug_tagArray(debug_tagArray),
+        .debug_plruTree(debug_plruTree),
+        .debug_plruIndex(debug_plruIndex)
     );
 
     // Clock generation
-    initial Clock = 0;
-    always #5 Clock = ~Clock; // 100 MHz clock
+    always #5 Clock = ~Clock; // 10 ns clock period
 
-    // Test procedure
-    initial begin
-        // Initialize signals
-        $display("start");
-        Rst = 1;
-        cpu_reqAddrIn = 0;
-        mem_rspTagIn = 0;
-        mem_rspInsLineIn = 0;
-        mem_rspInsLineValidIn = 0;
+    // Testbench Variables
+    int test_counter = 0;
 
-        // Apply reset
-        #10 Rst = 0;
+    // Helper task to display the data array
+    task display_data_array;
+        $display("Data Array:");
+        for (int line = 0; line < NUM_LINES; line++) begin
+            $display("  Line %0d: %0h", line, dut.debug_dataArray[(line + 1) * LINE_WIDTH - 1 -: LINE_WIDTH]);
+        end
+    endtask
 
-        // Test Case 1: Cache miss
-        cpu_reqAddrIn = 32'h12345678; // Example address
-        #10; // Wait for response
-        $display("Test Case 1 - Cache Miss");
-        $display("cpu_rspInsLineValidOut: %b", cpu_rspInsLineValidOut);
-        $display("mem_reqTagOut: %h", mem_reqTagOut);
-        $display("mem_reqTagValidOut: %b", mem_reqTagValidOut);
+    // Helper task to display the tag array
+    task display_tag_array;
+        $display("Tag Array:");
+        for (int tag = 0; tag < NUM_TAGS; tag++) begin
+            $display("  Tag %0d: Valid: %0b, Tag: %0h", tag, dut.debug_tagArray[(tag + 1) * (TAG_WIDTH + 1) - 1], 
+                     dut.debug_tagArray[(tag + 1) * (TAG_WIDTH + 1) - 2 -: TAG_WIDTH]);
+        end
+    endtask
 
-        // Test Case 2: Cache hit after insertion
-        mem_rspInsLineIn = 64'hDEADBEEFDEADBEEF;
+    
+initial begin
+    // Initialize signals
+    logic [7:0] temp_data; // Temporary variable for slicing
+    int i; // Declare 'i' for loop
+
+    Clock = 0;
+    Rst = 0;
+    cpu_reqAddrIn = 0;
+    mem_rspInsLineIn = 0;
+    mem_rspInsLineValidIn = 0;
+    mem_rspTagIn = 0;
+
+    // 1. Reset Behavior
+    $display("Test %0d: Reset Behavior", ++test_counter);
+    Rst = 1;
+    #20; // Hold reset for 20 ns
+    Rst = 0;
+    #10;
+    $display("PLRU tree reset to: %0b", dut.debug_plruTree);
+    display_data_array();
+    display_tag_array();
+
+    // 2. Basic Cache Miss
+    $display("Test %0d: Basic Cache Miss", ++test_counter);
+    cpu_reqAddrIn = 32'h1000;  // Set request address
+    $display("Requesting cpu address: %0h", cpu_reqAddrIn);
+    
+    display_data_array();
+    display_tag_array();
+
+    
+    #5
+    // check if memory request is sent
+    $display("Cache miss handled. Data insertion: %0b, hit: %0b, req data: %0h , %0b, rsp data: %0h, %0b", dut.dataInsertion, dut.hitStatusOut, dut.mem_reqTagOut, dut.mem_reqTagValidOut, mem_rspTagIn, mem_rspInsLineValidIn);
+    // Simulate response from memory
+    mem_rspInsLineIn = 128'hDEADBEEFDEADBEEFDEADBEEFDEADBEEF; // Line data
+    mem_rspTagIn = cpu_reqAddrIn[ADDR_WIDTH-1:OFFSET_WIDTH];
+    mem_rspInsLineValidIn = 1;
+    // check if data insertion mode is on
+    #5
+    $display("Cache miss handled. Data insertion: %0b, hit: %0b, req data: %0h , %0b, rsp data: %0h, %0b", dut.dataInsertion, dut.hitStatusOut, dut.mem_reqTagOut, dut.mem_reqTagValidOut, mem_rspTagIn, mem_rspInsLineValidIn);
+    // $display("PLRU before replacement. Evicted index: %0b", dut.debug_plruIndex);
+    // $display("PLRU tree before replacement: %0b", dut.debug_plruTree);
+
+    #10
+    mem_rspInsLineValidIn = 0;
+    $display("Inserted data: %0h", dut.cpu_rspInsLineOut);
+    display_data_array();
+    display_tag_array();
+    $display("PLRU replacement executed. Evicted index: %0b", dut.debug_plruIndex);
+    $display("PLRU tree after replacement: %0b", dut.debug_plruTree);
+
+    // 3. Basic Cache Hit
+    $display("Test %0d: Basic Cache Hit", ++test_counter);
+    cpu_reqAddrIn = 32'h1000;  // Access the same address
+    $display("Requesting cpu address: %0h", cpu_reqAddrIn);
+    #10;
+    $display("Cache hit. Valid line: %0b, Data: %0h", dut.cpu_rspInsLineValidOut, dut.cpu_rspInsLineOut);
+    $display("PLRU tree after hit: %0b", dut.debug_plruTree);
+
+    // 4. PLRU Replacement
+    $display("Test %0d: PLRU Replacement", ++test_counter);
+    for (i = 0; i < NUM_LINES*4; i++) begin
+        cpu_reqAddrIn = i * 16;
+        $display("Requesting cpu address: %0h", cpu_reqAddrIn);
+        #5 // check if memory request is sent
+        // $display("PLRU before replacement. Evicted index: %0b", dut.debug_plruIndex);
+        // $display("PLRU tree before replacement: %0b", dut.debug_plruTree);
+        $display("Cache miss handled. Data insertion: %0b, hit: %0b, req data: %0h , %0b, rsp data: %0h, %0b", dut.dataInsertion, dut.hitStatusOut, dut.mem_reqTagOut, dut.mem_reqTagValidOut, mem_rspTagIn, mem_rspInsLineValidIn);
+        #5 // simulate mem response
+        temp_data = (i + 1) & 8'hFF; // Extract the lower 8 bits
         mem_rspTagIn = cpu_reqAddrIn[ADDR_WIDTH-1:OFFSET_WIDTH];
+        mem_rspInsLineIn = {16{temp_data}}; // Unique data
         mem_rspInsLineValidIn = 1;
-        #10; // Wait for insertion to complete
-        $display("Test Case 2 - Cache Hit");
-        $display("cpu_rspInsLineValidOut: %b", cpu_rspInsLineValidOut);
-        $display("cpu_rspInsLineOut: %h", cpu_rspInsLineOut);
-
-        // Test Case 3: Validate PLRU tree update
-        $display("PLRU Tree State: %b", plruTreeOut);
-
-        // Finish simulation
-        #20;
-        $finish;
+        #5;
+        $display("Cache miss handled. Data insertion: %0b, hit: %0b, req data: %0h , %0b, rsp data: %0h, %0b", dut.dataInsertion, dut.hitStatusOut, dut.mem_reqTagOut, dut.mem_reqTagValidOut, mem_rspTagIn, mem_rspInsLineValidIn);
+        #5
+        mem_rspInsLineValidIn = 0;
+        $display("Inserted data for address %0h: %0h", cpu_reqAddrIn, mem_rspTagIn);
+        display_data_array();
+        display_tag_array();
+        $display("PLRU replacement executed. Evicted index: %0b", dut.debug_plruIndex);
+        $display("PLRU tree after replacement: %0b", dut.debug_plruTree);
     end
+
+    // Insert one more line to trigger replacement
+    cpu_reqAddrIn = 32'hFFFF;
+    $display("Requesting cpu address: %0h", cpu_reqAddrIn);
+    temp_data = 8'hFF; // Unique data for this case
+    mem_rspInsLineIn = {16{temp_data}};
+    mem_rspInsLineValidIn = 1;
+    mem_rspTagIn = cpu_reqAddrIn[ADDR_WIDTH-1:OFFSET_WIDTH];
+    #10;
+    mem_rspInsLineValidIn = 0;
+
+    $display("PLRU replacement executed. Evicted index: %0b", dut.debug_plruIndex);
+    $display("PLRU tree after replacement: %0b", dut.debug_plruTree);
+    display_data_array();
+    display_tag_array();
+
+    // 5. Re-accessing Evicted Line
+    $display("Test %0d: Re-accessing Evicted Line", ++test_counter);
+    cpu_reqAddrIn = 32'hFFFF; // Accessing evicted line
+    $display("Requesting cpu address: %0h", cpu_reqAddrIn);
+    #10;
+    $display("Cache hit status: %0b, Retrieved data: %0h", dut.cpu_rspInsLineValidOut, dut.cpu_rspInsLineOut);
+    display_data_array();
+    display_tag_array();
+
+
+    // Insert a second line to trigger replacement again
+    $display("Test %0d: PLRU Replacement (2nd trigger)", ++test_counter);
+    cpu_reqAddrIn = 32'hFFFE;
+    $display("Requesting cpu address: %0h", cpu_reqAddrIn);
+    temp_data = 8'hFE; // Unique data for this case
+    mem_rspInsLineIn = {16{temp_data}};
+    mem_rspInsLineValidIn = 1;
+    mem_rspTagIn = cpu_reqAddrIn[ADDR_WIDTH-1:OFFSET_WIDTH];
+    #10;
+    mem_rspInsLineValidIn = 0;
+
+    $display("PLRU replacement executed. Evicted index: %0b", dut.debug_plruIndex);
+    $display("PLRU tree after replacement: %0b", dut.debug_plruTree);
+    display_data_array();
+    display_tag_array();
+
+    // Insert a third line to trigger replacement again
+    $display("Test %0d: PLRU Replacement (3rd trigger)", ++test_counter);
+    cpu_reqAddrIn = 32'hFFFD;
+    $display("Requesting cpu address: %0h", cpu_reqAddrIn);
+    temp_data = 8'hFD; // Unique data for this case
+    mem_rspInsLineIn = {16{temp_data}};
+    mem_rspInsLineValidIn = 1;
+    mem_rspTagIn = cpu_reqAddrIn[ADDR_WIDTH-1:OFFSET_WIDTH];
+    #10;
+    mem_rspInsLineValidIn = 0;
+
+    $display("PLRU replacement executed. Evicted index: %0b", dut.debug_plruIndex);
+    $display("PLRU tree after replacement: %0b", dut.debug_plruTree);
+    $display("Final Data Array:");
+    display_data_array();
+    $display("Final Tag Array:");
+    display_tag_array();
+
+
+    $display("All tests completed!");
+    $stop;
+end
+
+
 endmodule

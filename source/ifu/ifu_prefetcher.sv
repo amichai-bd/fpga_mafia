@@ -10,60 +10,45 @@ import ifu_pkg::*;
     // CPU Interface
     input logic [ADDR_WIDTH-1:0] cpu_reqAddrIn, // requested addr by cpu
     
-    // Cache Interface
-    input logic [ADDR_WIDTH-1:0] cache_miss_addr_in,  // Address causing a miss in the cache
-    input logic cache_miss_valid_in,                  // Indicates if the cache miss is valid
-    output logic [ADDR_WIDTH-1:0] prefetch_addr_out,  // Predicted address to prefetch
-    output logic prefetch_addr_valid_out,             // Indicates if the prefetch address is valid
+    input logic [TAG_WIDTH-1:0] mem_rspTagIn, // tag of the line provided by response of the memory
+    input logic mem_rspInsLineValidIn, // the line is ready in the response and can be read by the cache
 
     // Memory Interface
-    input logic mem_prefetch_ready_in,                   // Indicates if memory can accept prefetch requests
-    output logic [ADDR_WIDTH-1:0] mem_prefetch_addr_out, // Predicted address sent to memory
-    output logic mem_prefetch_valid_out                 // Indicates if the prefetch request is valid
+    output logic [TAG_WIDTH - 1:0] mem_reqTagOut, // Predicted address sent to memory
+    output logic mem_reqTagValidOut             // Indicates if the prefetch request is valid
 );
 
     
-
 ///////////////////
 // Logic Defines //
 ///////////////////
-
-
-
-
-
-
-
-
+logic [TAG_WIDTH - 1 : 0] cpu_reqTagIn;
+logic mem_reqLineReady;
 
 /////////////
 // Assigns //
 /////////////
-
-
-
-
-
-
-
-
+assign cpu_reqTagIn = cpu_reqAddrIn[ADDR_WIDTH - 1 : OFFSET_WIDTH];
+assign mem_reqTagOut = cpu_reqTagIn + 1;
+assign mem_reqLineReady = mem_rspTagIn == mem_reqTagOut  &&  mem_rspInsLineValidIn;
 
 ///////////////////////////
 // Always Comb Statement //
 ///////////////////////////
+always_comb begin
 
+    if (mem_reqLineReady) begin   // if the memory supplied us with the prefetched line
+        mem_reqTagValidOut = !VALID;
+    end else begin
+        mem_reqTagValidOut = VALID;
+    end
 
-
-
-
-
+end
 
 
 ///////////////////////////
 // Always_ff Statement ////
 ///////////////////////////
-
-
 
 
 endmodule
