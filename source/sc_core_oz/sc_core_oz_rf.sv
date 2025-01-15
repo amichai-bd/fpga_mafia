@@ -28,7 +28,7 @@ import sc_core_oz_pkg::*;
     output logic [31:0]        RegRdData1, 
     output logic [31:0]        RegRdData2 
 );
-logic [31:0] Register [31:1];
+logic [31:1][31:0]  Register;
 m_opcode opcode;
 logic [2:0] func3;
 logic [6:0] func7;
@@ -99,7 +99,5 @@ assign RegWrData = SelRegWrPc ? PcPlus4 : WrBackData;
 assign RegRdData1 = (RegSrc1==5'b0) ? 32'b0 : Register[RegSrc1];
 assign RegRdData2 = (RegSrc2==5'b0) ? 32'b0 : Register[RegSrc2];
 
-
-logic [31:0] rf [30:0];   //register 0 has the value 0
 
 endmodule
