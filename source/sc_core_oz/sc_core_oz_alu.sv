@@ -50,6 +50,8 @@ assign Funct7           = Instruction[31:25];
 
 
 
+
+
 always_comb begin: alu_logic 
     case (alu_ctrl.op)
         ADD: result = alu_ctrl.reg_src1 + alu_ctrl.reg_src2;                                            //addition 
