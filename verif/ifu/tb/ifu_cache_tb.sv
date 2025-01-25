@@ -41,7 +41,7 @@ module ifu_cache_tb;
         .mem_rspInsLineValidIn(mem_rspInsLineValidIn),
         .mem_reqTagOut(mem_reqTagOut),
         .mem_reqTagValidOut(mem_reqTagValidOut),
-        // .dataInsertion(dataInsertion),
+        .dataInsertion(dataInsertion),
         .hitStatusOut(hitStatusOut),
         .debug_dataArray(debug_dataArray),
         .debug_tagArray(debug_tagArray),
@@ -114,7 +114,7 @@ initial begin
     // check if data insertion mode is on
     #5
     $display("Cache miss handled. Data insertion: %0b, hit: %0b, req data: %0h , %0b, rsp data: %0h, %0b", dut.dataInsertion, dut.hitStatusOut, dut.mem_reqTagOut, dut.mem_reqTagValidOut, mem_rspTagIn, mem_rspInsLineValidIn);
-    // $display("PLRU before replacement. Evicted index: %0b", dut.debug_plruIndex);
+    // $display("PLRU before replacement. Evicted index: %0d", dut.debug_plruIndex);
     // $display("PLRU tree before replacement: %0b", dut.debug_plruTree);
 
     #10
@@ -122,7 +122,7 @@ initial begin
     $display("Inserted data: %0h", dut.cpu_rspInsLineOut);
     display_data_array();
     display_tag_array();
-    $display("PLRU replacement executed. Evicted index: %0b", dut.debug_plruIndex);
+    $display("PLRU replacement executed. Evicted index: %0d", dut.debug_plruIndex);
     $display("PLRU tree after replacement: %0b", dut.debug_plruTree);
 
     // 3. Basic Cache Hit
@@ -139,7 +139,7 @@ initial begin
         cpu_reqAddrIn = i * 16;
         $display("Requesting cpu address: %0h", cpu_reqAddrIn);
         #5 // check if memory request is sent
-        // $display("PLRU before replacement. Evicted index: %0b", dut.debug_plruIndex);
+        // $display("PLRU before replacement. Evicted index: %0d", dut.debug_plruIndex);
         // $display("PLRU tree before replacement: %0b", dut.debug_plruTree);
         $display("Cache miss handled. Data insertion: %0b, hit: %0b, req data: %0h , %0b, rsp data: %0h, %0b", dut.dataInsertion, dut.hitStatusOut, dut.mem_reqTagOut, dut.mem_reqTagValidOut, mem_rspTagIn, mem_rspInsLineValidIn);
         #5 // simulate mem response
@@ -154,7 +154,7 @@ initial begin
         $display("Inserted data for address %0h: %0h", cpu_reqAddrIn, mem_rspTagIn);
         display_data_array();
         display_tag_array();
-        $display("PLRU replacement executed. Evicted index: %0b", dut.debug_plruIndex);
+        $display("PLRU replacement executed. Evicted index: %0d", dut.debug_plruIndex);
         $display("PLRU tree after replacement: %0b", dut.debug_plruTree);
     end
 
@@ -168,7 +168,7 @@ initial begin
     #10;
     mem_rspInsLineValidIn = 0;
 
-    $display("PLRU replacement executed. Evicted index: %0b", dut.debug_plruIndex);
+    $display("PLRU replacement executed. Evicted index: %0d", dut.debug_plruIndex);
     $display("PLRU tree after replacement: %0b", dut.debug_plruTree);
     display_data_array();
     display_tag_array();
@@ -194,7 +194,7 @@ initial begin
     #10;
     mem_rspInsLineValidIn = 0;
 
-    $display("PLRU replacement executed. Evicted index: %0b", dut.debug_plruIndex);
+    $display("PLRU replacement executed. Evicted index: %0d", dut.debug_plruIndex);
     $display("PLRU tree after replacement: %0b", dut.debug_plruTree);
     display_data_array();
     display_tag_array();
@@ -210,7 +210,7 @@ initial begin
     #10;
     mem_rspInsLineValidIn = 0;
 
-    $display("PLRU replacement executed. Evicted index: %0b", dut.debug_plruIndex);
+    $display("PLRU replacement executed. Evicted index: %0d", dut.debug_plruIndex);
     $display("PLRU tree after replacement: %0b", dut.debug_plruTree);
     $display("Final Data Array:");
     display_data_array();
@@ -219,7 +219,7 @@ initial begin
 
 
     $display("All tests completed!");
-    $stop;
+    $finish;
 end
 
 

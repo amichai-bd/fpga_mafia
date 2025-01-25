@@ -7,6 +7,13 @@ import ifu_pkg::*;
     input logic Clock,
     input logic Rst,
 
+    // Prefetcher Interface
+    input logic pref_reqTagValidIn,
+    input logic [TAG_WIDTH - 1 : 0] pref_reqTagIn,
+    output logic pref_rspTagValidOut,
+    output logic cache_rspTagStatusOut,
+    output logic [TAG_WIDTH - 1 : 0] pref_rspTagOut,
+
     // CPU Interface
     input logic [ADDR_WIDTH-1:0] cpu_reqAddrIn, // requested addr by cpu
     output logic [ADDR_WIDTH-1:0] cpu_rspAddrOut, // address of the line in the response to cpu
@@ -42,9 +49,11 @@ data_arr_t dataArray [NUM_LINES];
 logic [P_BITS - 1:0] replacementLine;
 
 // Hit 
-logic [P_BITS - 1:0] hitPosition;
-logic [NUM_TAGS - 1:0] hitArray;
-logic hitStatus;
+logic [P_BITS - 1:0] cpu_hitPosition;
+logic [NUM_TAGS - 1:0] cpu_hitArray;
+logic [NUM_TAGS - 1:0] pref_hitArray;
+logic cpu_hitStatus;
+logic pref_hitStatus;
 
 
 // PLRU
@@ -62,16 +71,17 @@ logic [P_BITS - 1:0] plruAccessLine;
 assign cpu_reqTagIn = cpu_reqAddrIn[ADDR_WIDTH - 1:OFFSET_WIDTH];
 
 // Hit
-assign hitStatus = |hitArray;
-assign mem_reqTagValidOut = !hitStatus;
+assign cpu_hitStatus = |cpu_hitArray;
+assign pref_hitStatus = |pref_hitArray;
+assign mem_reqTagValidOut = !cpu_hitStatus;
 
 // Insertion
 assign dataInsertion = mem_rspInsLineValidIn && mem_reqTagValidOut;
 
 // Debug
-assign hitStatusOut = hitStatus;
+assign hitStatusOut = cpu_hitStatus;
 assign debug_plruTree = plruTree;
-assign debug_plruIndex = replacementLine;
+
 
 // Flattened debug arrays for monitoring
 generate
@@ -93,23 +103,24 @@ always_comb begin
     plruAccessLineValid = 0;
     replacementLine = 0;
     updatedPlruTree = plruTree;
+    pref_rspTagValidOut = !VALID;
 
     // Hit Status
     for (int i = 0; i < NUM_TAGS; i++) begin
         if (cpu_reqTagIn == tagArray[i].tag && tagArray[i].valid == VALID) begin
-            hitArray[i] = 1;
-            hitPosition = i;
+            cpu_hitArray[i] = 1;
+            cpu_hitPosition = i;
         end else begin
-            hitArray[i] = 0;
+            cpu_hitArray[i] = 0;
         end
     end
 
     // Cache Action
-    if (hitStatus == HIT) begin
+    if (cpu_hitStatus == HIT) begin
         cpu_rspAddrOut = cpu_reqAddrIn;
-        cpu_rspInsLineOut = dataArray[hitPosition];
+        cpu_rspInsLineOut = dataArray[cpu_hitPosition];
         cpu_rspInsLineValidOut = VALID;
-        plruAccessLine = hitPosition; 
+        plruAccessLine = cpu_hitPosition; 
         plruAccessLineValid = VALID;
     end else begin
         cpu_rspInsLineValidOut = !VALID;
@@ -155,6 +166,23 @@ always_comb begin
         end
     end 
 
+    // prefetcher check
+    for (int i = 0; i < NUM_TAGS; i++) begin
+        if (pref_reqTagIn == tagArray[i].tag && tagArray[i].valid == VALID) begin
+            pref_hitArray[i] = 1;
+        end else begin
+            pref_hitArray[i] = 0;
+        end
+    end
+
+    if (pref_reqTagValidIn) begin
+        cache_rspTagStatusOut = pref_hitStatus;
+        pref_rspTagValidOut = VALID;
+        pref_rspTagOut = pref_reqTagIn;
+    end else begin
+        cache_rspTagStatusOut = !VALID;
+    end
+    
 end
 
 ///////////////////////////
@@ -168,7 +196,7 @@ always_ff @(posedge Clock or posedge Rst) begin
         end
         plruTree <= 15'b0;
     end else begin
-        if (hitStatus == HIT) begin
+        if (cpu_hitStatus == HIT) begin
             plruTree <= updatedPlruTree; 
         end
 
@@ -177,6 +205,7 @@ always_ff @(posedge Clock or posedge Rst) begin
             tagArray[replacementLine].valid <= VALID;
             tagArray[replacementLine].tag[TAG_WIDTH-1:0] <= mem_rspTagIn[TAG_WIDTH-1:0];
             plruTree <= updatedPlruTree; 
+            debug_plruIndex <= replacementLine;
         end
     end
 end

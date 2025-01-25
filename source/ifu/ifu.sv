@@ -28,6 +28,7 @@ import ifu_pkg::*;
 // data insertion
 logic insertionOnMiss;
 logic insertionOnPrefetch;
+logic p_reqSent;
 
 // cache signals
 logic [TAG_WIDTH - 1: 0] c_mem_reqTagOut;
@@ -37,12 +38,27 @@ logic c_mem_reqTagValidOut;
 logic [TAG_WIDTH - 1: 0] p_mem_reqTagOut;
 logic p_mem_reqTagValidOut;
 
+// cache <-> prefetcher 
+logic                    c2p_rspTagValid; 
+logic                    c2p_rspTagStatus;
+logic [TAG_WIDTH - 1: 0] c2p_rspTag;
+logic                    p2c_reqTagValid;
+logic [TAG_WIDTH - 1: 0] p2c_reqTag;
+
 ///////////
 // Cache //
 ///////////
 ifu_cache ifu_cache (
     .Clock(Clock),                                          // Input
     .Rst(Rst),                                              // Input
+
+    // Prefetcher Interface
+    .pref_reqTagValidIn(p2c_reqTag),                        // Input
+    .pref_reqTagIn(p2c_reqTagValid),                        // Input
+    .pref_rspTagValidOut(c2p_rspTagValid),                  // Output
+    .pref_rspTagStatusOut(c2p_rspTagStatus),                // Output
+    .pref_rspTagOut(p2c_reqTag),                            // Output
+
     // CPU Interface
     .cpu_reqAddrIn(cpu_reqAddrIn),                          // Input
     .cpu_rspAddrOut(cpu_rspAddrOut),                        // Output
@@ -63,6 +79,17 @@ ifu_cache ifu_cache (
 ifu_prefetcher ifu_prefetcher (
     .Clock(Clock),                                          // Input
     .Rst(Rst),                                              // Input
+
+    // Cache Interface
+    .cache_rspTagValidIn(c2p_rspTagValid),                  // input
+    .cache_rspTagStatusIn(c2p_rspTagStatus),                // input
+    .cache_rspTagIn(c2p_rspTag),                            // input
+    .cache_reqTagValidOut(p2c_reqTagValid),                 // Output 
+    .cache_reqTagOut(p2c_reqTag),                           // Output 
+
+    // IFU signals
+    .ifu_prefReqSent(p_reqSent),                            // Input
+
     // CPU Interface
     .cpu_reqAddrIn(cpu_reqAddrIn),                          // Input
             
@@ -87,16 +114,23 @@ assign insertionOnPrefetch = (mem_rspInsLineValidIn == VALID) && (p_mem_reqTagVa
 always_comb begin
 
     if (insertionOnMiss) begin
-       mem_reqTagOut = c_mem_reqTagOut;
-       mem_reqTagValidOut = VALID;
+        mem_reqTagOut = c_mem_reqTagOut;
     end 
 
     if (insertionOnPrefetch) begin
         mem_reqTagOut = p_mem_reqTagOut;
+        p_reqSent = VALID;
+    end
+
+    if (insertionOnMiss || insertionOnPrefetch) begin
         mem_reqTagValidOut = VALID;
     end
 
 end
+
+///////////////////////////
+// Always_FF Statement //
+///////////////////////////
 
 
 endmodule
